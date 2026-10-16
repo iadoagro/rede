@@ -1,0 +1,12 @@
+{
+  "port": 3030,
+  "intervalMs": 1000,
+  "devices": [
+    {
+      "name": "Nome do equipamento",
+      "host": "10.0.0.1",
+      "user": "admin",
+      "password": "senha"
+    }
+  ]
+}
