@@ -1,640 +1,114 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Tráfego das Portas</title>
-<style>
-:root{
-  --bg:#f4f6f8;--panel:#ffffff;--line:#e5e9ef;--tx:#1f2937;--mut:#6b7280;
-  --rail:#ffffff;--rail-ico:#9aa3b2;
-  --accent:#006fff;--rx:#38bdf8;--txc:#a855f7;
-  --port-off:#d7dce2;--port-fe:#9fdc3c;--port-ge:#2fb344;--port-hot:#0ea5e9;
-  --ok:#2fb344;--bad:#e5484d;--card-hov:#f9fafb;
-}
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){--bg:#0b0d11;--panel:#161920;--line:#262b34;--tx:#e6e9ee;--mut:#8b92a0;--port-off:#262b34;--rail:#12151b;--rail-ico:#5b6472;--card-hov:#1c2028}
-}
-:root[data-theme="dark"]{--bg:#0b0d11;--panel:#161920;--line:#262b34;--tx:#e6e9ee;--mut:#8b92a0;--port-off:#262b34;--rail:#12151b;--rail-ico:#5b6472;--card-hov:#1c2028}
-*{box-sizing:border-box}
-html,body{height:100%;width:100%}
-body{margin:0;background:var(--bg);color:var(--tx);font:13px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;display:flex;min-height:100vh}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rede — Monitor</title>
 
-/* trilho de ícones à esquerda, estético — igual ao app-switcher da UniFi */
-.rail{width:56px;flex:none;background:var(--rail);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:6px}
-.rail .ico{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--rail-ico);font-size:16px}
-.rail .ico.active{background:var(--accent);color:#fff}
-.rail .grow{flex:1}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
-.shell{flex:1;min-width:0;display:flex;flex-direction:column}
-header{display:flex;align-items:center;gap:14px;padding:10px 20px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
-header h1{font-size:15px;font-weight:600;margin:0;white-space:nowrap}
-.brand{color:var(--mut);font-weight:700;letter-spacing:.04em;font-size:13px;margin-left:4px}
-.viewsw{display:flex;gap:2px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:2px}
-.viewsw button{background:transparent;color:var(--mut);border:0;border-radius:6px;padding:6px 10px;font-size:13px}
-.viewsw button.active{background:var(--panel);color:var(--tx);box-shadow:0 1px 2px #0002}
-.tabs{display:flex;gap:4px;overflow-x:auto}
-.tab{padding:7px 14px;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--mut);font-size:13px;cursor:pointer;white-space:nowrap}
-.tab.active{background:var(--accent);color:#fff}
-.tab .dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:6px}
-.spacer{flex:1}
-.cfgbtn{border:1px solid var(--line);background:var(--panel);color:var(--tx);border-radius:8px;padding:7px 12px;cursor:pointer}
-.themebtn{border:1px solid var(--line);background:var(--panel);color:var(--tx);border-radius:50%;width:32px;height:32px;padding:0;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
-.avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#006fff,#38bdf8);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px}
-main{flex:1;width:100%;padding:20px;display:flex;flex-direction:column;min-height:0}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}
-.panel h2{font-size:14px;margin:0 0 2px;font-weight:600}
-.panel .meta{color:var(--mut);font-size:12px;margin-bottom:14px}
-.err{color:var(--bad);font-size:12px;margin-bottom:10px}
-.backbtn{background:transparent;border:0;color:var(--accent);padding:0;font-size:13px;cursor:pointer;margin-bottom:14px;display:inline-flex;align-items:center;gap:4px}
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
-/* visão geral: cards em miniatura dos equipamentos */
-.ovgrid{flex:1;min-height:0;display:grid;grid-template-columns:repeat(2,1fr);grid-auto-rows:minmax(260px,1fr);gap:16px;align-content:stretch;overflow-y:auto}
-.ovgrid .card:first-child{grid-column:1 / -1}
-@media (max-width:760px){.ovgrid{grid-template-columns:1fr}.ovgrid .card:first-child{grid-column:auto}}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;cursor:pointer;transition:border-color .12s,transform .12s;display:flex;flex-direction:column;min-height:0;overflow:hidden}
-.card:hover{border-color:var(--accent);transform:translateY(-1px)}
-.card.dragging{opacity:.4}
-.draghandle{display:inline-block;color:var(--mut);cursor:grab;margin-right:6px;letter-spacing:-1px}
-.draghandle:active{cursor:grabbing}
-.card .chead{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:2px;gap:10px}
-.card .cname{font-size:14px;font-weight:700}
-.card .cip{color:var(--mut);font-size:11px;margin-bottom:10px}
-.card .cstatus{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mut)}
-.card .cstatus i{width:7px;height:7px;border-radius:50%;background:var(--port-off)}
-.card .cstatus.up i{background:var(--ok)}
-.card .cstatus.down i{background:var(--bad)}
-.minispark{flex:none;width:90px;height:26px}
-.minispark svg{width:100%;height:100%;display:block}
-.miniports{display:flex;flex-wrap:wrap;gap:5px;margin:10px 0 16px}
-.miniports i{flex:1 1 16px;min-width:12px;height:18px;border-radius:4px;background:var(--port-off);display:block;cursor:default}
-.miniports i.up{background:var(--port-ge)}
-.miniports i.hot{background:var(--port-hot)}
-.cardbody{flex:1;min-height:0;overflow:auto}
-.activelist{display:flex;flex-direction:column;gap:5px;margin:8px 0}
-.activelist .alhead{color:var(--mut);font-size:10px;text-transform:uppercase;letter-spacing:.03em;margin-bottom:2px}
-.activelist .algrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:2px 14px}
-.alrow{display:flex;align-items:center;gap:6px;font-size:12px;padding:3px 0;cursor:default;min-width:0}
-.alrow .aln{flex:1;min-width:0;white-space:normal;word-break:break-word;line-height:1.25}
-.alrow .albar{width:40px;height:6px;border-radius:3px;background:var(--line);overflow:hidden;display:flex;flex:none}
-.alrow .albar i{display:block;height:100%}
-.alrow .alv{flex:none;width:58px;text-align:right;color:var(--mut);font-variant-numeric:tabular-nums}
-.alempty{color:var(--mut);font-size:12px;padding:8px 0}
-.cmetrics{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:auto;padding-top:10px}
-.cmetrics div{background:var(--bg);border-radius:8px;padding:8px 10px}
-.cmetrics .lbl{color:var(--mut);font-size:10px;text-transform:uppercase;letter-spacing:.03em}
-.cmetrics .val{font-size:14px;font-weight:700;margin-top:2px}
-svg.spark{width:100%;height:40px;display:block}
-
-/* tooltip de tráfego detalhado ao passar o mouse numa porta */
-.tooltip{position:fixed;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:8px;
-  padding:8px 11px;font-size:12px;box-shadow:0 8px 24px #0004;z-index:50;display:none;min-width:150px}
-.tooltip .tn{font-weight:700;margin-bottom:4px}
-.tooltip .tr{display:flex;justify-content:space-between;gap:14px;color:var(--mut)}
-.tooltip .tr b{color:var(--tx);font-weight:600;font-variant-numeric:tabular-nums}
-
-/* grade de portas (detalhe) — ethernet à esquerda, SFP separadas à direita, como no UniFi.
-   Grid (não flex) para a coluna "Rede" ganhar uma largura real (1fr) do painel —
-   com flex puro o grupo encolhia para o conteúdo mínimo e sobrava espaço vazio. */
-.portrow{display:grid;grid-template-columns:1fr auto;align-items:start;gap:16px}
-.portgroup{display:flex;flex-direction:column;gap:6px;min-width:0}
-.portgroup .gtitle{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
-/* a 2ª coluna (SFP) fica afastada da 1ª (Rede) e com um traço pontilhado
-   separando, para ficar claro que são grupos diferentes de porta */
-.portgroup+.portgroup{padding-left:16px;border-left:2px dashed var(--line)}
-.portgrid{display:flex;flex-wrap:wrap;gap:6px;width:100%}
-.portgrid.sfp{width:auto;max-width:160px}
-.port{width:62px;height:56px;border-radius:6px;background:var(--port-off);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:default;position:relative;transition:transform .1s;padding:3px 2px}
-.port:hover{transform:translateY(-2px)}
-.port .num{font-size:11px;font-weight:700;color:#0006}
-.port .label{font-size:8.5px;line-height:1.1;color:#0007;max-width:58px;text-align:center;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.port.sfpport{width:46px;height:46px;border-radius:5px}
-.port.sfpport .tag{font-size:7px;letter-spacing:.05em;color:#0006;font-weight:700}
-.port.up{background:var(--port-ge)}
-.port.hot{background:var(--port-hot)}
-.port .num,.port.up .num,.port.hot .num{color:#ffffffcc}
-.port.up .label,.port.hot .label,.port.up .tag,.port.hot .tag{color:#ffffffb0}
-
-/* versão mini (25% menor) do mesmo layout, usada nos cards da visão geral */
-.portrow.mini{gap:10px;flex:1 1 auto;width:100%}
-.portrow.mini .gtitle{font-size:8px;margin-bottom:1px}
-.portgrid.mini{gap:4px;width:100%}
-.portgrid.mini.sfp{width:auto;max-width:90px}
-/* grid (não flex) para a grade de ethernet: assim todo quadrado fica do
-   mesmo tamanho, com o mesmo nº de colunas em todas as linhas — com flex-wrap
-   a última linha (menos itens) esticava e ficava maior que as cheias */
-.portgrid.mini:not(.sfp){display:grid;grid-template-columns:repeat(auto-fill,minmax(58px,1fr));justify-content:stretch}
-.portgrid.mini:not(.sfp) .port.mini{width:auto}
-.port.mini{width:46px;height:64px;border-radius:5px;padding:2px 1px}
-.port.mini .num{font-size:8px}
-.port.mini .label{font-size:6.3px;max-width:42px}
-.port.mini.sfpport{width:35px;height:35px}
-.port.mini.sfpport .tag{font-size:5px}
-.port.mini.sfpport .num{font-size:7px}
-.legend{display:flex;gap:18px;margin-top:12px;flex-wrap:wrap;color:var(--mut);font-size:12px}
-.legend span{display:inline-flex;align-items:center;gap:6px}
-.legend i{width:11px;height:11px;border-radius:3px;display:inline-block}
-
-/* tabela de atividade */
-table{width:100%;border-collapse:collapse}
-th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums;white-space:nowrap}
-th{color:var(--mut);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.03em}
-td.n{text-align:right}
-.actbar{width:120px;height:14px;background:var(--line);border-radius:3px;overflow:hidden;display:flex}
-.actbar i{display:block;height:100%}
-.actbar .r{background:var(--rx)}
-.actbar .t{background:var(--txc)}
-.status{display:inline-flex;align-items:center;gap:6px}
-.status i{width:8px;height:8px;border-radius:50%;background:var(--port-off)}
-.status.up i{background:var(--ok)}
-.rx{color:var(--rx)}.tx{color:var(--txc)}
-tr.down td{color:var(--mut)}
-
-/* gráfico agregado */
-.chartwrap{position:relative}
-.chartlegend{display:flex;gap:16px;margin-bottom:8px;font-size:12px;color:var(--mut)}
-.chartlegend span{display:inline-flex;align-items:center;gap:6px}
-.chartlegend i{width:10px;height:3px;border-radius:2px;display:inline-block}
-svg.chart{width:100%;height:200px;display:block}
-.chart .grid line{stroke:var(--line)}
-.chart text{fill:var(--mut);font-size:10px}
-
-dialog{background:var(--panel);color:var(--tx);border:1px solid var(--line);border-radius:12px;max-width:720px;width:95%}
-dialog::backdrop{background:#0006}
-input{background:var(--bg);color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:6px;width:100%}
-button{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px}
-button.ghost{background:transparent;color:var(--tx);border:1px solid var(--line)}
-#portdlg{max-width:860px}
-#portdlg .closex{position:absolute;top:14px;right:14px;background:transparent;border:0;color:var(--mut);font-size:18px;padding:4px 8px}
-tr.mp{cursor:pointer}
-tr.mp:hover td{background:var(--card-hov)}
-@media (max-width:600px){header{flex-wrap:wrap}.port{width:44px;height:40px}.rail{display:none}}
-</style>
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="stylesheet" href="assets/css/monitor.css">
+  <link rel="stylesheet" href="assets/css/topology.css">
+  <style>
+    /* área de trabalho: uma aba, ou duas lado a lado (meio a meio) */
+    #workspace.split { display: flex; align-items: stretch; }
+    #workspace.split > .ws-pane:not(.d-none) { flex: 1 1 0; min-width: 0; overflow: auto; height: calc(100vh - 56px); }
+    #workspace.split > .ws-pane + .ws-pane:not(.d-none) { border-left: 2px solid var(--border); }
+    #workspace.split .nm-layout { height: calc(100vh - 110px); }
+    #workspace.split .topo-layout { height: calc(100vh - 110px); grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+    #tabTraffic iframe { width: 100%; height: calc(100vh - 56px); border: 0; display: block; }
+    #toastContainer { position: fixed; top: 70px; right: 16px; z-index: 2000; display: flex; flex-direction: column; gap: 8px; width: 290px; pointer-events: none; }
+    @keyframes toast-in  { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+    @keyframes toast-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(24px); } }
+  </style>
 </head>
 <body>
-<aside class="rail">
-  <div class="ico" id="rail-overview" title="Visão geral">⊙</div>
-  <div class="ico" id="rail-grid" title="Grade de portas">▦</div>
-  <div class="ico" id="rail-history" title="Histórico de tráfego">◴</div>
-  <div class="grow"></div>
-  <div class="ico" id="rail-settings" title="Equipamentos">⚙</div>
-</aside>
 
-<div class="shell">
-<header>
-  <h1>Rede <span class="brand">· TRÁFEGO</span></h1>
-  <div class="viewsw">
-    <button id="vw-overview" class="active">⊞ Visão geral</button>
-    <button id="vw-detail">▤ Detalhe</button>
+<!-- ══ BARRA SUPERIOR ════════════════════════════════════════════════ -->
+<header id="appBar" class="appbar">
+  <div class="appbar-brand" title="Rede">
+    <span class="appbar-logo"><i class="fas fa-circle-nodes"></i></span>
+    <div class="appbar-name"><strong>Rede</strong><small>Monitoramento</small></div>
   </div>
-  <div class="tabs" id="tabs"></div>
-  <div class="spacer"></div>
-  <button class="themebtn" id="themebtn" title="Alternar tema"></button>
-  <button class="cfgbtn" id="cfgbtn">⚙ Equipamentos</button>
-  <div class="avatar" id="avatar">R</div>
+
+  <nav id="mainTabs" class="appbar-tabs" role="tablist">
+    <a href="#" data-main-tab="monitor" class="active"><i class="fas fa-gauge-high"></i>Monitor</a>
+    <a href="#" data-main-tab="topology"><i class="fas fa-diagram-project"></i>Topologia</a>
+    <a href="#" data-main-tab="traffic"><i class="fas fa-chart-line"></i>Tráfego</a>
+  </nav>
+
+  <div class="appbar-right">
+    <span id="monIndicator" class="nm-pill">PARADO</span>
+    <span id="lastScanEl" class="appbar-last"></span>
+    <div class="split-ctl">
+      <select id="splitWith" class="nm-select-plain d-none" title="Aba ao lado">
+        <option value="monitor">Monitor</option>
+        <option value="topology">Topologia</option>
+        <option value="traffic" selected>Tráfego</option>
+      </select>
+      <button id="btnSplit" class="nm-btn" type="button" title="Mostrar duas abas lado a lado"><i class="fas fa-table-columns"></i><span>Lado a lado</span></button>
+    </div>
+    <button id="btnThemeToggle" class="nm-btn nm-btn-icon" type="button" title="Mudar tema"><i class="fas fa-moon"></i></button>
+  </div>
 </header>
 
-<dialog id="dlg"><form method="dialog" id="frm"><h3 style="margin-top:0">Equipamentos</h3>
-<table id="devs"><thead><tr><th></th><th>Nome</th><th>IP</th><th>Usuário</th><th>Senha</th><th></th></tr></thead><tbody></tbody></table>
-<p><button type="button" class="ghost" id="add">+ Adicionar</button></p>
-<div id="msg" class="err"></div>
-<p style="text-align:right"><button class="ghost" value="cancel">Cancelar</button> <button type="button" id="save">Salvar</button></p></form></dialog>
-
-<dialog id="portdlg" style="position:relative">
-  <form method="dialog"><button class="closex" aria-label="Fechar">✕</button></form>
-  <div id="portdlgbody"></div>
-</dialog>
-
-<main id="main"></main>
+<div id="noBackend" class="alert m-0 d-none" role="alert">
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div>
+      <i class="fas fa-exclamation-triangle me-2"></i>
+      <strong>Backend offline.</strong> Execute <code>node server.js</code> e abra <code>http://localhost:3030</code>.
+      <span id="retryMsg" class="ms-2" style="font-size:.75rem;opacity:.7"></span>
+    </div>
+    <button id="btnRetry" class="btn btn-sm">
+      <i class="fas fa-rotate me-1"></i>Tentar conexão
+    </button>
+  </div>
 </div>
-<div class="tooltip" id="tooltip"></div>
+
+<!-- ══ CONTEÚDO ══════════════════════════════════════════════════════ -->
+<div id="workspace">
+  <div id="tabMonitor"  class="ws-pane container-fluid px-3 py-3"></div>
+  <div id="tabTopology" class="ws-pane d-none container-fluid px-3 py-3"></div>
+  <div id="tabTraffic"  class="ws-pane d-none"><iframe id="trafficFrame" title="Tráfego das portas"></iframe></div>
+</div>
+
+<div id="toastContainer"></div>
+
+<script src="assets/js/icons.js"></script>
+<script src="assets/js/topology.js"></script>
+<script src="assets/js/rack.js"></script>
+<script src="assets/js/app.js"></script>
+<script src="assets/js/topo-ports.js"></script>
+<script src="assets/js/topo-ui.js"></script>
 
 <script>
-const fmtBps=b=>b>=1e9?(b/1e9).toFixed(2)+' Gbps':b>=1e6?(b/1e6).toFixed(2)+' Mbps':b>=1e3?(b/1e3).toFixed(1)+' kbps':b+' bps';
-const fmtBytes=b=>{const u=['B','KB','MB','GB','TB'];let i=0;while(b>=1024&&i<u.length-1){b/=1024;i++}return b.toFixed(i?1:0)+' '+u[i]};
-const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  document.addEventListener('DOMContentLoaded', async () => {
+    const pages = [
+      { id: 'tabMonitor',  src: 'pages/monitor.html'  },
+      { id: 'tabTopology', src: 'pages/topology.html' },
+    ];
 
-let data={devices:[]}, activeHost=null, viewMode='overview';
-const history={}; // host -> [{t,rx,tx}] ring buffer (agregado do equipamento)
-const portHistory={}; // "host|porta" -> [{t,rx,tx}] ring buffer (por porta)
-const HIST_MAX=120; // janela exibida nos gráficos (~2min a 1s)
-const portKey=(host,name)=>host+'|'+name;
+    await Promise.all(pages.map(async ({ id, src }) => {
+      try {
+        const res = await fetch(src);
+        if (!res.ok) throw new Error(`${res.status} ${src}`);
+        document.getElementById(id).innerHTML = await res.text();
+      } catch (e) {
+        console.error('Falha ao carregar', src, e);
+      }
+    }));
 
-// O servidor mantém o histórico de verdade em disco (history.json), guardando
-// bem mais que HIST_MAX amostras; ao entrar num equipamento pela 1ª vez,
-// carrega esse histórico para o gráfico não começar do zero a cada reload.
-const historyLoaded=new Set();
-async function ensureHistoryLoaded(host){
-  if(historyLoaded.has(host)) return;
-  historyLoaded.add(host);
-  try{
-    const r=await fetch('/api/history?host='+encodeURIComponent(host));
-    const j=await r.json();
-    if(!history[host]?.length) history[host]=(j.agg||[]).slice(-HIST_MAX);
-    for(const [name,arr] of Object.entries(j.ports||{})){
-      const k=portKey(host,name);
-      if(!portHistory[k]?.length) portHistory[k]=(arr||[]).slice(-HIST_MAX);
-    }
-    renderMain();
-  }catch{ historyLoaded.delete(host); }
-}
-
-function pickActive(){
-  if(!data.devices.length) return;
-  if(!activeHost || !data.devices.some(d=>d.host===activeHost)) activeHost=data.devices[0].host;
-}
-
-function setView(v){
-  viewMode=v;
-  document.getElementById('vw-overview').classList.toggle('active',v==='overview');
-  document.getElementById('vw-detail').classList.toggle('active',v==='detail');
-  document.getElementById('tabs').style.display=v==='detail'?'flex':'none';
-  document.getElementById('rail-overview').classList.toggle('active',v==='overview');
-  document.getElementById('rail-grid').classList.toggle('active',v==='detail');
-  document.getElementById('rail-history').classList.remove('active');
-  renderMain();
-}
-document.getElementById('vw-overview').onclick=()=>setView('overview');
-document.getElementById('vw-detail').onclick=()=>setView('detail');
-document.getElementById('rail-overview').onclick=()=>setView('overview');
-document.getElementById('rail-grid').onclick=()=>setView('detail');
-document.getElementById('rail-history').onclick=()=>{
-  setView('detail');
-  document.getElementById('rail-history').classList.add('active');
-  document.getElementById('rail-grid').classList.remove('active');
-  document.querySelector('.chartwrap')?.scrollIntoView({behavior:'smooth',block:'center'});
-};
-document.getElementById('rail-settings').onclick=()=>document.getElementById('cfgbtn').click();
-
-function renderTabs(){
-  document.getElementById('tabs').innerHTML=data.devices.map(d=>
-    `<button class="tab ${d.host===activeHost?'active':''}" data-h="${esc(d.host)}">
-      <span class="dot" style="background:${d.ok?'var(--ok)':'var(--bad)'}"></span>${esc(d.name)}</button>`).join('');
-  [...document.querySelectorAll('.tab')].forEach(b=>b.onclick=()=>{activeHost=b.dataset.h;renderTabs();renderMain()});
-}
-
-function portClass(p){
-  if(!p.running) return '';
-  const total=p.rxBps+p.txBps;
-  return total>5e6?'hot':'up';
-}
-
-// Interfaces nomeadas "1.ALGO", "2.ALGO"... trazem o número físico da porta
-// no próprio nome; ordena por esse número para as portas 1,2,3,4... virem
-// sempre primeiro na grade, em vez de depender da ordem que o equipamento devolve.
-function byPortNumber(a,b){
-  const ma=a.name.match(/^(\d+)[.,]/), mb=b.name.match(/^(\d+)[.,]/);
-  const ka=ma?[0,+ma[1]]:[1,a.port], kb=mb?[0,+mb[1]]:[1,b.port];
-  return ka[0]!==kb[0] ? ka[0]-kb[0] : ka[1]-kb[1];
-}
-
-function sparkline(h,w,ht){
-  if(h.length<2) return '';
-  const max=Math.max(1e5,...h.map(p=>Math.max(p.rx,p.tx)));
-  const x=i=>(w*i/(HIST_MAX-1));
-  const y=v=>ht-2-(ht-4)*v/max;
-  const offset=HIST_MAX-h.length;
-  const path=arr=>h.map((p,i)=>`${i?'L':'M'}${x(offset+i).toFixed(1)},${y(p[arr]).toFixed(1)}`).join(' ');
-  return `<svg class="spark" viewBox="0 0 ${w} ${ht}" preserveAspectRatio="none">
-    <path d="${path('rx')}" fill="none" stroke="var(--rx)" stroke-width="1.5"/>
-    <path d="${path('tx')}" fill="none" stroke="var(--txc)" stroke-width="1.5"/>
-  </svg>`;
-}
-
-// data-attrs usados pelo tooltip de hover e pelo clique (abre o detalhe da porta)
-function portAttrs(p,host){
-  return `data-host="${esc(host)}" data-pname="${esc(p.name)}" data-prun="${p.running?1:0}" data-prx="${p.rxBps}" data-ptx="${p.txBps}"`;
-}
-
-const isSfp=p=>/sfp/i.test(p.name);
-
-// Mesmo visual (número + nome, agrupado Rede/SFP) usado no modo Detalhe e,
-// em miniatura (mini=true), nos cards da visão geral.
-function portBox(p,mini,host){
-  const cls=mini?' mini':'';
-  if(isSfp(p)) return `<div class="port sfpport${cls} mp ${portClass(p)}" ${portAttrs(p,host)}>
-      <div class="tag">SFP</div><div class="num">${p.port}</div><div class="label">${esc(p.name.replace(/^\d+[.,]/,'').replace(/sfp[-_]?/i,''))}</div>
-    </div>`;
-  return `<div class="port${cls} mp ${portClass(p)}" ${portAttrs(p,host)}>
-      <div class="num">${p.port}</div><div class="label">${esc(p.name.replace(/^\d+[.,]/,''))}</div>
-    </div>`;
-}
-
-function renderPortGroups(ports,mini,host){
-  const sorted=[...ports].sort(byPortNumber);
-  const eth=sorted.filter(p=>!isSfp(p)), sfp=sorted.filter(isSfp);
-  const ethBoxes=eth.map(p=>portBox(p,mini,host)).join('');
-  const sfpBoxes=sfp.map(p=>portBox(p,mini,host)).join('');
-  const rowCls='portrow'+(mini?' mini':''), gridCls='portgrid'+(mini?' mini':'');
-  const html=`<div class="${rowCls}">
-      <div class="portgroup"><div class="gtitle">Rede (RJ45)</div><div class="${gridCls}">${ethBoxes}</div></div>
-      ${sfp.length?`<div class="portgroup"><div class="gtitle">SFP / Fibra</div><div class="${gridCls} sfp">${sfpBoxes}</div></div>`:''}
-    </div>`;
-  return {eth,sfp,html};
-}
-
-/* ---------- Visão geral: cards em miniatura de cada equipamento ---------- */
-function renderOverview(){
-  if(!data.devices.length) return '<div class="panel">Nenhum equipamento cadastrado.</div>';
-  const cards=data.devices.map(d=>{
-    if(!d.ok){
-      return `<div class="card" data-h="${esc(d.host)}" draggable="true">
-        <div class="chead"><span class="cname"><span class="draghandle" title="Arraste para reordenar">⠿</span>${esc(d.name)}</span></div>
-        <div class="cip">${esc(d.host)}</div>
-        <div class="cstatus down"><i></i>Offline</div>
-        <div class="err" style="margin-top:8px">${esc(d.error||'')}</div></div>`;
-    }
-    const up=d.ports.filter(p=>p.running).length;
-    const rx=d.ports.reduce((s,p)=>s+p.rxBps,0), tx=d.ports.reduce((s,p)=>s+p.txBps,0);
-    const h=history[d.host]||[];
-    const active=d.ports.filter(p=>p.running).sort((a,b)=>(b.rxBps+b.txBps)-(a.rxBps+a.txBps));
-    const maxActive=Math.max(1e5,...active.map(p=>p.rxBps+p.txBps));
-    const TOP=6;
-    const rows=active.slice(0,TOP).map(p=>`<div class="alrow mp" ${portAttrs(p,d.host)}>
-        <span class="aln">${esc(p.name)}</span>
-        <span class="albar"><i style="width:${(p.rxBps+p.txBps)/maxActive*100}%;background:var(--rx)"></i></span>
-        <span class="alv">${fmtBps(p.rxBps+p.txBps)}</span>
-      </div>`).join('')
-      || '<div class="alempty">Nenhuma porta ativa</div>';
-    const more=active.length>TOP?`<div class="alempty">+${active.length-TOP} porta(s) ativa(s)</div>`:'';
-    return `<div class="card" data-h="${esc(d.host)}" draggable="true">
-      <div class="chead">
-        <div><span class="cname"><span class="draghandle" title="Arraste para reordenar">⠿</span>${esc(d.name)}</span>
-          <div class="cip">${esc(d.host)} · ${d.ports.length} portas</div>
-          <div class="cstatus up"><i></i>Online · ${up}/${d.ports.length} ativas</div>
-        </div>
-        <div class="minispark">${sparkline(h,120,30)}</div>
-      </div>
-      <div class="cardbody">
-        <div class="miniports">${renderPortGroups(d.ports,true,d.host).html}</div>
-        <div class="activelist"><div class="alhead">Portas ativas agora</div><div class="algrid">${rows}</div>${more}</div>
-      </div>
-      <div class="cmetrics">
-        <div><div class="lbl">RX agora</div><div class="val rx">${fmtBps(rx)}</div></div>
-        <div><div class="lbl">TX agora</div><div class="val tx">${fmtBps(tx)}</div></div>
-      </div>
-    </div>`;
-  }).join('');
-  return `<div class="ovgrid">${cards}</div>`;
-}
-
-/* ---------- Detalhe: grade de portas + gráfico + tabela de um equipamento ---------- */
-function renderPortGrid(d){
-  const {eth,sfp,html}=renderPortGroups(d.ports,false,d.host);
-  return `<div class="panel"><h2>${esc(d.name)}</h2><div class="meta">${esc(d.host)} · ${eth.length} portas de rede${sfp.length?` · ${sfp.length} SFP`:''}</div>
-    ${html}
-    <div class="legend">
-      <span><i style="background:var(--port-off)"></i>Sem link</span>
-      <span><i style="background:var(--port-ge)"></i>Ativa</span>
-      <span><i style="background:var(--port-hot)"></i>Tráfego alto (&gt;5 Mbps)</span>
-    </div></div>`;
-}
-
-// Gráfico de linha RX/TX reutilizado no throughput total do equipamento e no
-// detalhe de cada porta (ver openPortDetail).
-function lineChartSvg(h,histMaxLen,w,ht,pad){
-  const max=Math.max(1e6,...h.map(p=>Math.max(p.rx,p.tx)))*1.15;
-  const x=i=>pad+(w-pad*2)*i/(histMaxLen-1);
-  const y=v=>ht-pad-(ht-pad*2)*v/max;
-  const offset=histMaxLen-h.length;
-  const path=arr=>h.map((p,i)=>`${i?'L':'M'}${x(offset+i).toFixed(1)},${y(p[arr]).toFixed(1)}`).join(' ');
-  const gridY=[0,.25,.5,.75,1].map(f=>{
-    const v=max*f;
-    return `<line class="grid" x1="${pad}" x2="${w-pad}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"/>
-      <text x="${pad-6}" y="${(y(v)+3).toFixed(1)}" text-anchor="end">${fmtBps(v).replace('.00','')}</text>`;
-  }).join('');
-  return `<svg class="chart" viewBox="0 0 ${w} ${ht}">${gridY}
-      <path d="${path('rx')}" fill="none" stroke="var(--rx)" stroke-width="2"/>
-      <path d="${path('tx')}" fill="none" stroke="var(--txc)" stroke-width="2"/>
-    </svg>`;
-}
-
-function renderChart(d){
-  const h=history[d.host]||[];
-  if(h.length<2) return `<div class="panel"><h2>Throughput total</h2><div class="meta">coletando histórico…</div></div>`;
-  return `<div class="panel"><h2>Throughput total</h2><div class="meta">soma de todas as portas · últimos ${h.length}s</div>
-    <div class="chartlegend"><span><i style="background:var(--rx)"></i>RX ↓</span><span><i style="background:var(--txc)"></i>TX ↑</span></div>
-    <div class="chartwrap">${lineChartSvg(h,HIST_MAX,1000,200,28)}</div></div>`;
-}
-
-function renderTable(d){
-  const max=Math.max(1e6,...d.ports.map(p=>Math.max(p.rxBps,p.txBps)));
-  const rows=d.ports.map(p=>`<tr class="mp ${p.running?'':'down'}" ${portAttrs(p,d.host)}>
-    <td>${p.port}</td>
-    <td>${esc(p.name)}</td>
-    <td><span class="status ${p.running?'up':''}"><i></i>${p.running?'Ativa':'Inativa'}</span></td>
-    <td><div class="actbar"><i class="r" style="width:${p.rxBps/max*100}%"></i><i class="t" style="width:${p.txBps/max*100}%"></i></div></td>
-    <td class="n rx">${fmtBps(p.rxBps)}</td>
-    <td class="n tx">${fmtBps(p.txBps)}</td>
-    <td class="n">${fmtBytes(p.rxBytes)}</td>
-    <td class="n">${fmtBytes(p.txBytes)}</td>
-  </tr>`).join('');
-  return `<div class="panel"><h2>Portas</h2>
-    <table><thead><tr><th>#</th><th>Nome</th><th>Status</th><th>Atividade</th><th class="n">RX</th><th class="n">TX</th><th class="n">RX total</th><th class="n">TX total</th></tr></thead>
-    <tbody>${rows}</tbody></table></div>`;
-}
-
-function renderDetail(){
-  const d=data.devices.find(x=>x.host===activeHost);
-  if(!d) return '<div class="panel">Nenhum equipamento cadastrado.</div>';
-  const back='<button class="backbtn" id="backbtn">← Visão geral</button><br>';
-  if(!d.ok) return back+`<div class="panel"><h2>${esc(d.name)}</h2><div class="err">${esc(d.error||'offline')}</div></div>`;
-  return back+renderPortGrid(d)+renderChart(d)+renderTable(d);
-}
-
-function renderMain(){
-  const m=document.getElementById('main');
-  // a tela é refeita a cada 1s; sem isso, rolar dentro de um card (cardbody)
-  // seria resetado a cada tick — guarda e restaura a posição por equipamento.
-  const scrollPos={};
-  m.querySelectorAll('.card[data-h] .cardbody').forEach(el=>{
-    scrollPos[el.closest('.card').dataset.h]=el.scrollTop;
+    await window.initApp();
   });
-  m.innerHTML = viewMode==='overview' ? renderOverview() : renderDetail();
-  m.querySelectorAll('.card[data-h] .cardbody').forEach(el=>{
-    const v=scrollPos[el.closest('.card').dataset.h];
-    if(v) el.scrollTop=v;
-  });
-  if(viewMode==='overview'){
-    [...document.querySelectorAll('.card')].forEach(c=>c.onclick=()=>{
-      activeHost=c.dataset.h; renderTabs(); setView('detail');
-    });
-    setupCardDrag(m.querySelector('.ovgrid'));
-  } else {
-    const b=document.getElementById('backbtn');
-    if(b) b.onclick=()=>setView('overview');
-  }
-}
-
-let draggingCard=null;
-function setupCardDrag(grid){
-  if(!grid||grid.dataset.dragReady) return;
-  grid.dataset.dragReady='1';
-  grid.addEventListener('dragstart',e=>{
-    const c=e.target.closest('.card[draggable="true"]');
-    if(!c) return;
-    draggingCard=c; c.classList.add('dragging');
-    e.dataTransfer.effectAllowed='move';
-    e.dataTransfer.setData('text/plain',c.dataset.h);
-  });
-  grid.addEventListener('dragend',e=>{
-    const c=e.target.closest('.card[draggable="true"]');
-    if(c) c.classList.remove('dragging');
-    const moved=!!draggingCard;
-    draggingCard=null;
-    if(moved) saveCardOrder();
-  });
-  grid.addEventListener('dragover',e=>{
-    if(!draggingCard) return;
-    e.preventDefault();
-    const over=e.target.closest('.card[draggable="true"]');
-    if(!over||over===draggingCard) return;
-    const r=over.getBoundingClientRect();
-    const before=(e.clientY-r.top)<r.height/2;
-    grid.insertBefore(draggingCard,before?over:over.nextSibling);
-  });
-}
-async function saveCardOrder(){
-  const order=[...document.querySelectorAll('.ovgrid .card[data-h]')].map(c=>c.dataset.h);
-  data.devices.sort((a,b)=>order.indexOf(a.host)-order.indexOf(b.host));
-  try{ await fetch('/api/devices/reorder',{method:'POST',body:JSON.stringify({order})}); }catch{}
-}
-
-async function tick(){
-  try{
-    const r=await fetch('/api/traffic');data=await r.json();
-    const now=Date.now();
-    data.devices.forEach(d=>{
-      if(!d.ok) return;
-      ensureHistoryLoaded(d.host);
-      const rx=d.ports.reduce((s,p)=>s+p.rxBps,0), tx=d.ports.reduce((s,p)=>s+p.txBps,0);
-      const h=history[d.host]||(history[d.host]=[]);
-      h.push({t:now,rx,tx}); if(h.length>HIST_MAX) h.shift();
-      d.ports.forEach(p=>{
-        const k=portKey(d.host,p.name);
-        const ph=portHistory[k]||(portHistory[k]=[]);
-        ph.push({t:now,rx:p.rxBps,tx:p.txBps}); if(ph.length>HIST_MAX) ph.shift();
-      });
-    });
-    if(draggingCard){ pickActive(); return; } // não re-renderiza enquanto o usuário arrasta um card
-    pickActive();renderTabs();renderMain();
-    if(portdlg.open) renderPortDialog();
-  }catch(e){document.getElementById('main').innerHTML='<div class="panel err">Servidor indisponível: '+esc(e.message)+'</div>'}
-}
-
-const dlg=document.getElementById('dlg'),tb=document.querySelector('#devs tbody');
-const portdlg=document.getElementById('portdlg');
-function row(d={}){const tr=document.createElement('tr');
-  tr.draggable=true;
-  tr.innerHTML=`<td class="drag" title="Arraste para reordenar" style="cursor:grab;color:var(--mut)">⠿</td><td><input class="n" value="${esc(d.name||'')}"></td><td><input class="h" value="${esc(d.host||'')}" placeholder="10.20.12.x"></td><td><input class="u" value="${esc(d.user||'admin')}"></td><td><input class="p" type="password" autocomplete="new-password" placeholder="${d.hasPassword?'(mantida)':'senha'}"></td><td><button type="button" class="ghost">✕</button></td>`;
-  tr.querySelector('button').onclick=()=>tr.remove();tb.appendChild(tr);}
-let dragRow=null;
-tb.addEventListener('dragstart',e=>{const tr=e.target.closest('tr');if(!tr)return;dragRow=tr;e.dataTransfer.effectAllowed='move';tr.style.opacity='.4';});
-tb.addEventListener('dragend',e=>{const tr=e.target.closest('tr');if(tr)tr.style.opacity='';dragRow=null;});
-tb.addEventListener('dragover',e=>{
-  e.preventDefault();
-  const over=e.target.closest('tr');
-  if(!over||over===dragRow||!dragRow)return;
-  const r=over.getBoundingClientRect();
-  const before=(e.clientY-r.top)<r.height/2;
-  tb.insertBefore(dragRow,before?over:over.nextSibling);
-});
-document.getElementById('cfgbtn').onclick=async()=>{tb.innerHTML='';
-  (await (await fetch('/api/devices')).json()).forEach(row);document.getElementById('msg').textContent='';dlg.showModal();};
-document.getElementById('add').onclick=()=>row();
-document.getElementById('save').onclick=async()=>{
-  const list=[...tb.rows].map(r=>({name:r.querySelector('.n').value,host:r.querySelector('.h').value,user:r.querySelector('.u').value,password:r.querySelector('.p').value}));
-  const r=await fetch('/api/devices',{method:'POST',body:JSON.stringify(list)});const j=await r.json();
-  if(!r.ok){document.getElementById('msg').textContent=j.error;return}
-  dlg.close();tick();};
-setView('overview');
-tick();setInterval(tick,1000);
-
-// Tooltip de tráfego detalhado ao passar o mouse numa porta (grade mini ou detalhada).
-// Delegação de evento: funciona mesmo depois de o HTML ser trocado a cada tick().
-const tip=document.getElementById('tooltip');
-function positionTip(e){
-  const pad=14;
-  let x=e.clientX+pad, y=e.clientY+pad;
-  const r=tip.getBoundingClientRect();
-  if(x+r.width>innerWidth-8) x=e.clientX-r.width-pad;
-  if(y+r.height>innerHeight-8) y=e.clientY-r.height-pad;
-  tip.style.left=x+'px'; tip.style.top=y+'px';
-}
-document.addEventListener('mouseover',e=>{
-  const t=e.target.closest('.mp');
-  if(!t) return;
-  const run=t.dataset.prun==='1', rx=+t.dataset.prx, tx=+t.dataset.ptx;
-  tip.innerHTML=`<div class="tn">${esc(t.dataset.pname)}</div>
-    <div class="tr"><span>Status</span><b style="color:${run?'var(--ok)':'var(--bad)'}">${run?'Ativa':'Inativa'}</b></div>
-    <div class="tr"><span>RX ↓</span><b class="rx">${fmtBps(rx)}</b></div>
-    <div class="tr"><span>TX ↑</span><b class="tx">${fmtBps(tx)}</b></div>`;
-  tip.style.display='block';
-  positionTip(e);
-});
-document.addEventListener('mousemove',e=>{ if(tip.style.display==='block') positionTip(e); });
-document.addEventListener('mouseout',e=>{
-  if(e.target.closest('.mp') && !e.relatedTarget?.closest?.('.mp')) tip.style.display='none';
-});
-
-// Clique numa porta (grade, mini-grade, lista de ativas ou tabela) abre o
-// detalhe de tráfego daquela interface específica, com gráfico próprio.
-// Fase de captura: intercepta o clique ANTES dele borbulhar até o .card
-// (que também tem onclick, para navegar para o Detalhe) e cancela a propagação.
-let openPort=null; // {host,name}
-document.addEventListener('click',e=>{
-  const t=e.target.closest('.mp');
-  if(!t) return;
-  e.stopPropagation();
-  openPort={host:t.dataset.host,name:t.dataset.pname};
-  renderPortDialog();
-  portdlg.showModal();
-},true);
-portdlg.querySelector('.closex').onclick=()=>portdlg.close();
-
-function renderPortDialog(){
-  if(!openPort) return;
-  const body=document.getElementById('portdlgbody');
-  const d=data.devices.find(x=>x.host===openPort.host);
-  const p=d&&d.ports.find(x=>x.name===openPort.name);
-  if(!d||!p){ body.innerHTML='<p class="err">Porta não encontrada (equipamento offline?)</p>'; return; }
-  const h=portHistory[portKey(openPort.host,openPort.name)]||[];
-  const chart=h.length>=2
-    ? `<div class="chartlegend"><span><i style="background:var(--rx)"></i>RX ↓</span><span><i style="background:var(--txc)"></i>TX ↑</span></div>
-       <div class="chartwrap">${lineChartSvg(h,HIST_MAX,800,220,28)}</div>`
-    : '<div class="meta">coletando histórico…</div>';
-  body.innerHTML=`
-    <h3 style="margin:0 0 2px">${esc(p.name)}</h3>
-    <div class="meta">${esc(d.name)} · ${esc(d.host)}${isSfp(p)?' · SFP':''}</div>
-    <div class="status ${p.running?'up':''}" style="margin:10px 0 14px"><i></i>${p.running?'Ativa':'Inativa'}</div>
-    <div class="cmetrics" style="margin-bottom:16px">
-      <div><div class="lbl">RX agora</div><div class="val rx">${fmtBps(p.rxBps)}</div></div>
-      <div><div class="lbl">TX agora</div><div class="val tx">${fmtBps(p.txBps)}</div></div>
-      <div><div class="lbl">RX total</div><div class="val">${fmtBytes(p.rxBytes)}</div></div>
-      <div><div class="lbl">TX total</div><div class="val">${fmtBytes(p.txBytes)}</div></div>
-    </div>
-    ${chart}`;
-}
-
-// Tema claro/escuro: respeita o SO por padrão, com opção manual salva no navegador.
-const themeBtn=document.getElementById('themebtn');
-function applyTheme(t){
-  if(t) document.documentElement.setAttribute('data-theme',t);
-  else document.documentElement.removeAttribute('data-theme');
-  const dark=t?t==='dark':matchMedia('(prefers-color-scheme: dark)').matches;
-  themeBtn.textContent=dark?'☀️':'🌙';
-}
-let saved=null;
-try{saved=localStorage.getItem('theme')}catch{}
-applyTheme(saved);
-themeBtn.onclick=()=>{
-  const dark=document.documentElement.getAttribute('data-theme')
-    ? document.documentElement.getAttribute('data-theme')==='dark'
-    : matchMedia('(prefers-color-scheme: dark)').matches;
-  const next=dark?'light':'dark';
-  applyTheme(next);
-  try{localStorage.setItem('theme',next)}catch{}
-};
 </script>
+
 </body>
 </html>

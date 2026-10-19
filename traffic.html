@@ -1,0 +1,1355 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tráfego das Portas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script>
+/* Dentro do app (iframe) esta página não desenha o próprio cabeçalho/menu/tema:
+   herda a barra superior do app e o tema dele. */
+if(window.self!==window.top){
+  document.documentElement.classList.add('embedded');
+  try{document.documentElement.setAttribute('data-theme',window.parent.document.body.classList.contains('dark-mode')?'dark':'light')}catch(e){}
+}
+</script>
+<style>
+:root{
+  --bg:#f4f5fa;--panel:#ffffff;--line:#e2e5ee;--tx:#0f172a;--mut:#64748b;--dim:#94a3b8;
+  --rail:#ffffff;--rail-ico:#94a3b8;
+  --accent:#4f46e5;--on-accent:#ffffff;--seg:#eef0f6;--rx:#0ea5e9;--txc:#a855f7;
+  --ok:#059669;--bad:#e11d48;--warn:#d97706;--card-hov:#f8f9fc;--soft:#f6f7fb;
+  /* cores das portas por velocidade negociada (como no UniFi) */
+  --sp-off:#d6dbe6;--sp-off-tx:#8590a6;--sp-10:#e0a800;--sp-fe:#9bd33a;--sp-ge:#2fb344;--sp-25:#7bb0f0;
+  --sp-5:#5e9be8;--sp-10g:#16a3b8;--sp-25g:#a468e0;--sp-40g:#e0569a;
+  --ni-body:#f2f4f9;--ni-edge:#c3cbdb;--ni-dark:#4b566b;--ni-accent:var(--accent);--ni-screen:#9db8f5;
+  --mono:'JetBrains Mono',ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){--bg:#0a0d14;--panel:#121722;--line:#242c3d;--tx:#e8ecf5;--mut:#8c97ad;--dim:#667189;--rail:#121722;--rail-ico:#667189;--card-hov:#181e2c;--soft:#161c29;--accent:#818cf8;--on-accent:#0a0d14;--seg:#212939;--ok:#34d399;--bad:#fb7185;--warn:#fbbf24;--sp-off:#283043;--sp-off-tx:#6b7690;--ni-body:#e9edf6;--ni-edge:#9aa6bd;--ni-dark:#39445a}
+}
+:root[data-theme="dark"]{--bg:#0a0d14;--panel:#121722;--line:#242c3d;--tx:#e8ecf5;--mut:#8c97ad;--dim:#667189;--rail:#121722;--rail-ico:#667189;--card-hov:#181e2c;--soft:#161c29;--accent:#818cf8;--on-accent:#0a0d14;--seg:#212939;--ok:#34d399;--bad:#fb7185;--warn:#fbbf24;--sp-off:#283043;--sp-off-tx:#6b7690;--ni-body:#e9edf6;--ni-edge:#9aa6bd;--ni-dark:#39445a}
+
+*{box-sizing:border-box}
+html,body{height:100%;width:100%}
+body{margin:0;background:var(--bg);color:var(--tx);font:13px/1.45 'Inter',-apple-system,Segoe UI,Roboto,sans-serif;display:flex;min-height:100vh}
+button{font-family:inherit}
+
+/* trilho de ícones (só quando a página roda sozinha) */
+.rail{width:56px;flex:none;background:var(--rail);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:6px}
+.rail .ico{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--rail-ico);font-size:16px;cursor:pointer}
+.rail .ico.active{background:var(--accent);color:var(--on-accent)}
+.rail .grow{flex:1}
+
+.shell{flex:1;min-width:0;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:12px;padding:10px 20px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5;flex-wrap:wrap}
+header h1{font-size:15px;font-weight:600;margin:0;white-space:nowrap}
+.brand{color:var(--mut);font-weight:700;letter-spacing:.04em;font-size:13px;margin-left:4px}
+.spacer{flex:1}
+
+/* seletor de equipamento + abas, como no UniFi (Ports / Insights) */
+.devsel{position:relative;display:inline-flex;align-items:center}
+.devsel .ic{position:absolute;left:12px;color:var(--mut);pointer-events:none;font-size:12px}
+.devsel::after{content:'';position:absolute;right:13px;width:6px;height:6px;border-right:1.6px solid var(--mut);border-bottom:1.6px solid var(--mut);transform:rotate(45deg) translateY(-2px);pointer-events:none}
+.devsel select{appearance:none;-webkit-appearance:none;height:36px;min-width:250px;max-width:360px;padding:0 34px 0 34px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--tx);font:600 13px 'Inter',sans-serif;cursor:pointer}
+.devsel select:focus-visible,.search input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.seg{display:inline-flex;gap:2px;background:var(--seg);border-radius:10px;padding:3px}
+.seg button{background:transparent;color:var(--mut);border:0;border-radius:8px;padding:0 14px;height:30px;font:600 12.5px 'Inter',sans-serif;cursor:pointer}
+.seg button:hover{color:var(--tx)}
+.seg button.active{background:var(--panel);color:var(--accent);box-shadow:0 1px 3px #00000024}
+.gearbtn{border:1px solid var(--line);background:var(--panel);color:var(--mut);border-radius:10px;width:36px;height:36px;padding:0;font-size:16px;line-height:1;cursor:pointer;display:grid;place-items:center}
+.gearbtn:hover{border-color:var(--accent);color:var(--accent)}
+.seg[hidden]{display:none}
+.themebtn{border:1px solid var(--line);background:var(--panel);color:var(--tx);border-radius:50%;width:32px;height:32px;padding:0;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
+.avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--rx));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px}
+
+/* Embutido no app: sem menu lateral, marca, tema e avatar próprios (o app já tem). */
+html.embedded .rail,html.embedded header h1,html.embedded .themebtn,html.embedded .avatar{display:none}
+html.embedded header{background:var(--bg);border-bottom:0;padding:14px 20px 0}
+html.embedded main{padding-top:14px}
+
+main{flex:1;width:100%;padding:20px;display:flex;flex-direction:column;min-height:0;max-width:1700px;margin:0 auto}
+main>*{flex:none}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:14px}
+.panel h2,.panel h3{font-size:14px;margin:0 0 2px;font-weight:600}
+.panel .meta{color:var(--mut);font-size:12px;margin-bottom:12px}
+.err{color:var(--bad);font-size:12px;margin-bottom:10px}
+.empty{color:var(--mut);padding:30px 10px;text-align:center}
+.mono{font-family:var(--mono)}
+.rx{color:var(--rx)}.tx{color:var(--txc)}
+
+/* ───────── cabeçalho do equipamento ───────── */
+.dvh{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;padding:2px 2px 14px}
+.dvh-main{display:flex;align-items:center;gap:14px;min-width:0}
+.dvh-ico{width:54px;height:54px;border-radius:14px;background:var(--panel);border:1px solid var(--line);display:grid;place-items:center;flex:none}
+.dvh h2{font-size:19px;font-weight:700;margin:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;letter-spacing:-.01em}
+.dvh .sub{color:var(--mut);font-size:12.5px;margin-top:3px;display:flex;gap:6px 14px;flex-wrap:wrap}
+.dvh .sub span+span::before{content:'·';margin-right:14px;color:var(--dim)}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:99px;font-size:11.5px;font-weight:700;background:var(--seg);color:var(--mut)}
+.pill i{width:7px;height:7px;border-radius:50%;background:var(--dim)}
+.pill.up{background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok)}.pill.up i{background:var(--ok)}
+.pill.down{background:color-mix(in srgb,var(--bad) 14%,transparent);color:var(--bad)}.pill.down i{background:var(--bad)}
+.dvh-kpis{display:flex;gap:10px;flex-wrap:wrap}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 14px;min-width:120px}
+.kpi .k{display:block;color:var(--mut);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.kpi b{font:700 15px var(--mono);font-variant-numeric:tabular-nums}
+
+/* ───────── painel de portas (estilo UniFi) ───────── */
+.pp{padding:22px 24px 16px;overflow-x:auto}
+.ppwrap{display:flex;align-items:flex-start;gap:34px;min-width:min-content}
+.pgrp{display:flex;flex-direction:column;gap:8px}
+.pgrp+.pgrp{padding-left:34px;border-left:2px dashed var(--line)}
+.pgt{font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.07em;font-weight:600}
+.pg{display:grid;grid-auto-flow:column;column-gap:10px;row-gap:6px;justify-content:start}
+.pg.r4{grid-template-rows:auto 54px 54px auto}
+.pg.r2{grid-template-rows:54px 54px}
+.pg.s2{grid-template-rows:auto 56px}
+.pg.s1{grid-template-rows:56px}
+.pg.s1 .psq,.pg.s2 .psq{width:62px;height:56px}
+.nb{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;width:54px;min-height:44px;color:var(--mut);font-size:10.5px;cursor:default}
+.nb:empty{min-height:0}
+.nb svg{display:block}
+.nb span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pg.r4 .nb:nth-child(4n){justify-content:flex-start}
+.psq{position:relative;width:54px;height:54px;border-radius:7px;display:flex;align-items:flex-end;padding:0 0 9px 8px;color:#fff;font:700 12.5px 'Inter',sans-serif;
+  text-shadow:0 1px 1px #0000002e;cursor:pointer;transition:transform .12s,box-shadow .15s;overflow:hidden}
+.psq:hover{transform:translateY(-2px);box-shadow:0 6px 14px #0000002e}
+.psq.sel{outline:2px solid var(--accent);outline-offset:2px}
+.psq .n{line-height:1}
+.psq .tg{position:absolute;left:8px;top:6px;font-size:8.5px;letter-spacing:.08em;opacity:.8}
+.psq::after{content:'';position:absolute;left:0;bottom:0;height:4px;width:calc(var(--act,0)*1%);background:#ffffffd9;border-radius:0 2px 0 0;transition:width .4s}
+.psq-gap{width:54px;height:54px}
+.sp-off{background:var(--sp-off);color:var(--sp-off-tx);text-shadow:none}
+.sp-dis{background:transparent;border:1.5px dashed var(--sp-off);color:var(--sp-off-tx);text-shadow:none;padding-left:6.5px}
+.sp-up,.sp-ge{background:var(--sp-ge)}.sp-fe{background:var(--sp-fe)}.sp-s10{background:var(--sp-10)}.sp-g25{background:var(--sp-25)}
+.sp-g5{background:var(--sp-5)}.sp-g10{background:var(--sp-10g)}.sp-g25g{background:var(--sp-25g)}.sp-g40,.sp-g100{background:var(--sp-40g)}
+.t-up,.t-ge{color:var(--sp-ge)}.t-fe{color:#6fa51f}.t-s10{color:var(--sp-10)}.t-g25{color:var(--sp-25)}.t-g5{color:var(--sp-5)}.t-g10{color:var(--sp-10g)}.t-g25g{color:var(--sp-25g)}.t-g40,.t-g100{color:var(--sp-40g)}.t-off,.t-dis{color:var(--dim)}
+.legend{display:flex;gap:6px 18px;margin-top:18px;flex-wrap:wrap;color:var(--mut);font-size:12px;justify-content:center}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.legend i{width:11px;height:11px;border-radius:3px;display:inline-block}
+.legend i.dis{border:1.5px dashed var(--sp-off)}
+.legend i.act{height:4px;width:16px;background:var(--mut);opacity:.6;border-radius:2px}
+
+/* ───────── filtros + tabela ───────── */
+.fltbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+#chips,.chips{display:flex;gap:6px;flex-wrap:wrap;flex:1}
+.sbar{display:flex;height:34px;border-radius:12px;overflow:hidden;background:var(--seg);margin:14px 0 10px;box-shadow:inset 0 0 0 1px var(--line)}
+.sbar span{display:flex;align-items:center;justify-content:center;min-width:0;overflow:hidden;white-space:nowrap;font:600 11.5px var(--mono);color:#fff;background:var(--hk);width:0;transition:width .6s cubic-bezier(.2,.8,.2,1);text-shadow:0 1px 2px rgba(0,0,0,.35)}
+.sbar span+span{border-left:2px solid var(--panel)}
+.sbar .none{width:100%;background:transparent;color:var(--mut);text-shadow:none;font-family:inherit;font-weight:500}
+.slegend{display:flex;flex-wrap:wrap;gap:8px 22px;font-size:12px;color:var(--mut)}
+.slegend .sl{display:inline-flex;align-items:center;gap:7px}.slegend .sl i{width:11px;height:11px;border-radius:3px;background:var(--hk)}.slegend b{color:var(--tx)}
+.live{float:right;font:600 11px var(--mono);color:var(--ok)}
+.live::first-letter{animation:livep 1.2s ease-in-out infinite}
+@keyframes livep{50%{opacity:.25}}
+.pbhd small{font-weight:500;text-transform:none;letter-spacing:0;color:var(--dim);margin-left:6px}
+.pbhd{margin:18px 0 2px;font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
+.pbrow{display:grid;grid-template-columns:minmax(110px,170px) 1fr 64px;gap:14px;align-items:center}
+.pbrow .pbn{display:flex;align-items:center;gap:8px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pbrow .pbn i{width:11px;height:11px;border-radius:3px;background:var(--hk);flex:none}
+.pbrow b.pv{text-align:right;font:600 12px var(--mono)}
+.pbrow .ugrad{margin:12px 0}
+.pbscale{display:grid;grid-template-columns:minmax(110px,170px) 1fr 64px;gap:14px}
+.ovwrap{display:flex;flex-direction:column;gap:14px}
+.ovbar{display:flex;align-items:center;justify-content:flex-end;gap:10px;font-size:12px;color:var(--mut)}
+.ovbar .seg{display:inline-flex;border:1px solid var(--bd,#e3e6ef);border-radius:10px;overflow:hidden}
+.ovbar .seg button{border:0;background:transparent;padding:6px 12px;font-size:12px;cursor:pointer;color:inherit}
+.ovbar .seg button.active{background:var(--primary,#4f46e5);color:#fff}
+#ovDevs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 16px;align-items:start}
+@media (max-width:1100px){#ovDevs{grid-template-columns:minmax(0,1fr)}}
+.devsec{--hk:var(--accent);min-width:0;background:color-mix(in srgb,var(--hk) 9%,var(--bg));border:2px solid color-mix(in srgb,var(--hk) 45%,var(--line));border-top:6px solid var(--hk);border-radius:16px;padding:16px 16px 4px;box-shadow:0 6px 20px rgba(15,23,42,.10)}
+.devsec .panel{margin-bottom:12px;border-color:color-mix(in srgb,var(--hk) 28%,var(--line))}
+.devsec .dvh h2{color:var(--hk)}
+.devsec .dvh-wrap{padding-bottom:2px}
+.devsec .dvh{flex-wrap:wrap;gap:10px}
+.devsec .dvh-kpis{flex-wrap:wrap}
+.devsec>.dvh-wrap{margin-bottom:10px}
+.ovfilters{margin-bottom:14px}
+.chip{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 11px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--tx);font:500 12.5px 'Inter',sans-serif;cursor:pointer;user-select:none}
+.chip:hover{border-color:var(--accent)}
+.chip .bx{width:15px;height:15px;border-radius:4px;border:1.5px solid var(--dim);display:grid;place-items:center;font-size:10px;line-height:1;color:transparent}
+.chip.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 9%,transparent)}
+.chip.on .bx{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.search{position:relative;display:inline-flex;align-items:center}
+.search::before{content:'⌕';position:absolute;left:10px;color:var(--dim);font-size:15px;line-height:1}
+.search input{width:250px;height:32px;padding:0 10px 0 28px;background:var(--panel);color:var(--tx);border:1px solid var(--line);border-radius:8px;font:13px 'Inter',sans-serif}
+.tblwrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums;white-space:nowrap}
+th{color:var(--tx);font-weight:600;font-size:12px;user-select:none}
+th[data-k]{cursor:pointer}
+th[data-k]:hover{color:var(--accent)}
+th .ar{display:inline-block;width:10px;color:var(--accent);font-size:9px;margin-left:3px}
+td.n,th.n{text-align:right}
+tr.mp{cursor:pointer}
+tr.mp:hover td{background:var(--card-hov)}
+tr.off td,tr.dis td{color:var(--mut)}
+.pb{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:5px;color:#fff;font:700 10.5px 'Inter',sans-serif;margin-right:9px;vertical-align:middle;text-shadow:0 1px 1px #00000030}
+.pb.sp-off{color:var(--sp-off-tx)}
+td.c-name small{display:block;color:var(--dim);font-size:11px;margin-top:-1px}
+.stt{display:inline-flex;align-items:center;gap:7px}
+.stt i{width:8px;height:8px;border-radius:50%;background:var(--dim)}
+.stt.up i{background:var(--ok)}.stt.dis i{background:transparent;border:1.5px solid var(--dim)}
+.conn{display:inline-flex;align-items:center;gap:7px;max-width:240px}
+.conn svg{flex:none}
+.conn span{overflow:hidden;text-overflow:ellipsis}
+.act2{display:flex;flex-direction:column;gap:3px;width:130px}
+.act2 b{display:block;height:5px;border-radius:3px;background:var(--line);overflow:hidden}
+.act2 i{display:block;height:100%;border-radius:3px}
+.act2 .r i{background:var(--rx)}.act2 .t i{background:var(--txc)}
+
+/* ───────── visão geral (todos os equipamentos) ───────── */
+.ovgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:14px;align-content:start}
+@media (max-width:560px){.ovgrid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;cursor:pointer;transition:border-color .12s,transform .12s;display:flex;flex-direction:column;gap:12px;min-width:0}
+.card:hover{border-color:var(--accent);transform:translateY(-1px)}
+.card.dragging{opacity:.4}
+.draghandle{display:inline-block;color:var(--dim);cursor:grab;margin-right:6px;letter-spacing:-1px}
+.card .chead{display:flex;align-items:center;gap:12px}
+.card .ci{width:42px;height:42px;border-radius:11px;background:var(--soft);display:grid;place-items:center;flex:none}
+.card .ct{flex:1;min-width:0}
+.card .cname{font-size:14px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card .cip{color:var(--mut);font-size:11.5px;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.minipanel{display:flex;flex-wrap:wrap;gap:4px}
+.minipanel i{width:17px;height:17px;border-radius:4px;display:block}
+.minipanel i.sp-off{background:var(--sp-off)}
+.minipanel i.sp-dis{border:1.5px dashed var(--sp-off);background:transparent}
+.minipanel i.gap{width:8px;background:none}
+.cmid{display:flex;align-items:flex-end;gap:14px}
+.cmetrics{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.cmetrics>div{background:var(--soft);border-radius:10px;padding:8px 11px}
+.cmetrics .lbl{color:var(--mut);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.cmetrics .val{font:700 14px var(--mono);margin-top:2px}
+.minispark{flex:none;width:130px;height:44px}
+.minispark svg{width:100%;height:100%;display:block}
+.activelist .alhead{color:var(--mut);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:4px}
+.alrow{display:flex;align-items:center;gap:8px;font-size:12px;padding:3px 0;min-width:0}
+.alrow .aln{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.alrow .albar{width:60px;height:5px;border-radius:3px;background:var(--line);overflow:hidden;flex:none}
+.alrow .albar i{display:block;height:100%;background:var(--rx)}
+.alrow .alv{flex:none;width:76px;text-align:right;color:var(--mut);font:500 11.5px var(--mono)}
+.alempty{color:var(--mut);font-size:12px}
+
+/* ───────── insights ───────── */
+.kcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-bottom:14px}
+.kcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.kcard .k{color:var(--mut);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.kcard .v{font:700 20px var(--mono);margin-top:4px;font-variant-numeric:tabular-nums}
+.kcard .v small{font-size:11.5px;color:var(--mut);font-weight:500}
+.kcard .two{display:flex;gap:16px;flex-wrap:wrap}
+.chart-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.chartlegend{display:flex;gap:16px;font-size:12px;color:var(--mut)}
+.chartlegend span{display:inline-flex;align-items:center;gap:6px}
+.chartlegend i{width:10px;height:3px;border-radius:2px;display:inline-block}
+.chartwrap{position:relative}
+svg.chart{width:100%;height:auto;display:block}
+.chart .grid line{stroke:var(--line)}
+.chart text{fill:var(--mut);font-size:10px;font-family:'Inter',sans-serif}
+.chart .xh{stroke:var(--mut);stroke-width:1;stroke-dasharray:3 3}
+.cols2{display:grid;grid-template-columns:1.4fr 1fr;gap:14px}
+@media (max-width:900px){.cols2{grid-template-columns:1fr}}
+.dist{display:flex;flex-direction:column;gap:9px;margin-top:6px}
+.dist .row{display:grid;grid-template-columns:70px 1fr 28px;gap:10px;align-items:center;font-size:12px}
+.dist .bar{height:10px;border-radius:5px;background:var(--line);overflow:hidden}
+.dist .bar i{display:block;height:100%;border-radius:5px}
+.dist .row b{text-align:right;font-family:var(--mono)}
+
+/* tooltip de tráfego detalhado ao passar o mouse numa porta */
+.tooltip{position:fixed;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  padding:9px 12px;font-size:12px;box-shadow:0 10px 28px #0004;z-index:50;display:none;min-width:170px;max-width:290px}
+.tooltip .tn{font-weight:700;margin-bottom:5px}
+.tooltip .tn small{font-weight:500;color:var(--mut)}
+.tooltip .tr{display:flex;justify-content:space-between;gap:14px;color:var(--mut)}
+.tooltip .tr b{color:var(--tx);font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
+
+dialog{background:var(--panel);color:var(--tx);border:1px solid var(--line);border-radius:14px;max-width:720px;width:95%}
+dialog::backdrop{background:#0008}
+dialog h3{margin:0 0 8px}
+input{background:var(--bg);color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:6px;width:100%}
+dialog button{background:var(--accent);color:var(--on-accent);border:0;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px;font-weight:600}
+dialog button.ghost{background:transparent;color:var(--tx);border:1px solid var(--line)}
+#portdlg{max-width:880px}
+#portdlg .closex{position:absolute;top:14px;right:14px;background:transparent;border:0;color:var(--mut);font-size:18px;padding:4px 8px}
+.pdkv{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:12px 0 16px}
+.pdkv>div{background:var(--soft);border-radius:10px;padding:8px 11px}
+.pdkv .lbl{color:var(--mut);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.pdkv .val{font:700 14px var(--mono);margin-top:2px;overflow-wrap:anywhere}
+.pdkv .val.t{font-family:'Inter',sans-serif}
+.nbcard{display:flex;align-items:center;gap:12px;background:var(--soft);border-radius:12px;padding:10px 14px;margin:6px 0 4px}
+.nbcard small{display:block;color:var(--mut)}
+
+/* ───────── painel da rede: tops e barra de utilização ───────── */
+.sechd{font-size:14px;margin:6px 2px 10px;font-weight:700}
+.tops{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media (max-width:1000px){.tops{grid-template-columns:1fr}}
+.tiles{display:flex;flex-wrap:wrap;gap:10px 8px}
+.tile{width:92px;text-align:center;padding:8px 4px;border-radius:12px;transition:background .12s}
+.tile.go,.tile.mp{cursor:pointer}
+.tile:hover{background:var(--card-hov)}
+.tile .tl-ico{display:grid;place-items:center;width:46px;height:46px;margin:0 auto 6px;background:var(--soft);border-radius:12px}
+.tile b{display:block;font-size:11.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tile small{display:block;font:500 10.5px var(--mono);color:var(--mut);margin-top:1px}
+.ubar{padding:8px 4px 0}
+.ugrad{position:relative;height:12px;border-radius:99px;background:linear-gradient(90deg,#34d399 0%,#a3e635 30%,#fbbf24 60%,#f97316 80%,#ef4444 100%);margin:16px 0 8px}
+.um{position:absolute;top:50%;width:22px;height:22px;transform:translate(-50%,-50%);border-radius:50%;background:var(--panel);border:2.5px solid var(--accent);display:grid;place-items:center;box-shadow:0 2px 6px #0003}
+.um i{font:700 10px var(--mono);font-style:normal;color:var(--tx)}
+.um.warm{border-color:#f59e0b}.um.hot{border-color:var(--bad)}
+.uscale{display:flex;justify-content:space-between;font:500 10.5px var(--mono);color:var(--mut)}
+.ukey{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:14px;font-size:12px;color:var(--mut)}
+.uk{display:inline-flex;align-items:center;gap:7px}
+.uk i{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;border:2px solid var(--accent);font:700 9px var(--mono);font-style:normal;color:var(--tx)}
+.uk b{color:var(--tx);font-family:var(--mono)}
+
+/* ───────── ambiente: forma de onda, waterfall e vizinhos ───────── */
+.env-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.env-ctl{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.env-scale{display:flex;align-items:center;gap:8px;font:500 11px var(--mono);color:var(--mut)}
+.env-scale i{width:120px;height:8px;border-radius:4px;background:linear-gradient(90deg,hsl(140,62%,27%),hsl(110,70%,36%),hsl(80,78%,45%),hsl(55,90%,58%))}
+.elab{font-weight:700;font-size:13px;margin:6px 0}
+.elab small{font-weight:500;color:var(--mut);margin-left:8px;font-size:11.5px}
+.egrid{display:grid;grid-template-columns:54px minmax(0,1fr) 40px;gap:0 8px;align-items:stretch;margin-bottom:12px}
+.yax{position:relative;height:190px}
+.yax span{position:absolute;right:4px;transform:translateY(-50%);font:500 10px var(--mono);color:var(--mut);white-space:nowrap}
+.yax.wfax{height:210px;display:flex;flex-direction:column;justify-content:space-between;text-align:right}
+.yax.wfax span{position:static;transform:none}
+svg.wave{display:block;width:100%;height:190px;background:var(--soft);border-radius:8px}
+.wave .grid line{stroke:var(--line);stroke-width:1;vector-effect:non-scaling-stroke}
+#envWf{width:100%;height:210px;display:block;border-radius:8px;image-rendering:pixelated;background:var(--soft)}
+.yr{position:relative;font:500 10px var(--mono);color:var(--mut)}
+.yr span{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(90deg);white-space:nowrap}
+.xax{display:grid;font:500 10px var(--mono);color:var(--mut);text-align:center}
+.nbrow{cursor:pointer}
+.nbrow:hover td{background:var(--card-hov)}
+.nbrow.open td{background:var(--soft)}
+.xp{width:22px;height:22px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--mut);cursor:pointer;display:grid;place-items:center;font:600 13px/1 'Inter',sans-serif;padding:0}
+.xp:hover{border-color:var(--accent);color:var(--accent)}
+.nbdet td{background:var(--soft);padding:12px 14px}
+.nbd{display:grid;grid-template-columns:minmax(220px,300px) 1fr;gap:18px;align-items:start}
+@media (max-width:900px){.nbd{grid-template-columns:1fr}}
+.nbd-kv{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;font-size:12px}
+.nbd-kv span{display:block;color:var(--mut);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em}
+.nbd-kv b{font-weight:600}
+.nbd-kv .full{grid-column:1/-1}
+.nbd .ghost{border:1px solid var(--line);background:var(--panel);color:var(--tx);border-radius:8px;padding:6px 12px;font:600 12px 'Inter',sans-serif;cursor:pointer}
+.nbd .ghost:hover{border-color:var(--accent);color:var(--accent)}
+.nbd-ch svg.chart{max-height:170px}
+@media (max-width:600px){header{flex-wrap:wrap}.rail{display:none}.devsel select{min-width:0;width:100%}}
+</style>
+</head>
+<body>
+<aside class="rail">
+  <div class="ico" id="rail-overview" title="Todos os equipamentos">⊙</div>
+  <div class="ico" id="rail-grid" title="Portas">▦</div>
+  <div class="ico" id="rail-history" title="Insights">◴</div>
+  <div class="grow"></div>
+  <div class="ico" id="rail-settings" title="Equipamentos">⚙</div>
+</aside>
+
+<div class="shell">
+<header>
+  <h1>Rede <span class="brand">· TRÁFEGO</span></h1>
+  <label class="devsel"><span class="ic">▤</span><select id="devSel" aria-label="Equipamento"></select></label>
+  <button class="gearbtn" id="cfgbtn" title="Equipamentos (cadastro e acesso SSH)" aria-label="Equipamentos">⚙</button>
+  <div class="spacer"></div>
+  <div class="seg" id="tabSeg" hidden>
+    <button data-tab="ports">Portas</button>
+    <button data-tab="insights">Insights</button>
+    <button data-tab="env">Ambiente</button>
+  </div>
+  <div class="spacer"></div>
+  <div class="seg" id="rangeSeg" title="Janela de tempo dos gráficos">
+    <button data-win="120">2 min</button>
+    <button data-win="600">10 min</button>
+  </div>
+  <button class="themebtn" id="themebtn" title="Alternar tema"></button>
+  <div class="avatar" id="avatar">R</div>
+</header>
+
+<dialog id="dlg"><form method="dialog" id="frm"><h3>Equipamentos</h3>
+<table id="devs"><thead><tr><th></th><th>Nome</th><th>IP</th><th>Usuário</th><th>Senha</th><th></th></tr></thead><tbody></tbody></table>
+<p><button type="button" class="ghost" id="add">+ Adicionar</button></p>
+<div id="msg" class="err"></div>
+<p style="text-align:right"><button class="ghost" value="cancel">Cancelar</button> <button type="button" id="save">Salvar</button></p></form></dialog>
+
+<dialog id="portdlg" style="position:relative">
+  <form method="dialog"><button class="closex" aria-label="Fechar">✕</button></form>
+  <div id="portdlgbody"></div>
+</dialog>
+
+<main id="main"></main>
+</div>
+<div class="tooltip" id="tooltip"></div>
+
+<script src="/assets/js/icons.js"></script>
+<script>
+const fmtBps=b=>b>=1e9?(b/1e9).toFixed(2)+' Gbps':b>=1e6?(b/1e6).toFixed(2)+' Mbps':b>=1e3?(b/1e3).toFixed(1)+' kbps':Math.round(b)+' bps';
+const fmtBytes=b=>{const u=['B','KB','MB','GB','TB'];let i=0;while(b>=1024&&i<u.length-1){b/=1024;i++}return b.toFixed(i?1:0)+' '+u[i]};
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $=id=>document.getElementById(id);
+const embedded=document.documentElement.classList.contains('embedded');
+
+let data={devices:[]}, sel='', tab='ports', openPort=null; // openPort = {host,name}
+const HIST_MAX=600;                       // o servidor guarda ~10 min a 1 amostra/s
+const ui={flt:{use:false,avail:false,traffic:false,sfp:false,virt:false,sp:{}},sort:{key:'port',dir:1},q:'',win:120,envGrp:'all'};
+function loadUi(){ try{
+  const s=JSON.parse(localStorage.getItem('tf_ui')||'{}');
+  if(typeof s.sel==='string') sel=s.sel;
+  if(s.tab==='ports'||s.tab==='insights'||s.tab==='env') tab=s.tab;
+  if(s.flt) Object.assign(ui.flt,s.flt);
+  if(s.sort&&s.sort.key) ui.sort=s.sort;
+  if(s.win===120||s.win===600) ui.win=s.win;
+  if(s.envGrp==='all'||s.envGrp==='ether'||s.envGrp==='sfp') ui.envGrp=s.envGrp;
+}catch(e){} }
+function saveUi(){ try{ localStorage.setItem('tf_ui',JSON.stringify({sel,tab,flt:ui.flt,sort:ui.sort,win:ui.win,envGrp:ui.envGrp})) }catch(e){} }
+loadUi();
+
+const history={};      // host -> [{t,rx,tx}] (soma das portas físicas)
+const portHistory={};  // "host|porta" -> [{t,rx,tx}]
+const portKey=(host,name)=>host+'|'+name;
+const dev=h=>data.devices.find(d=>d.host===h);
+const findPort=(h,n)=>{const d=dev(h);return d&&d.ports.find(p=>p.name===n)};
+
+// O servidor guarda o histórico em disco; ao abrir um equipamento carrega esse
+// histórico para o gráfico não começar do zero a cada reload.
+const historyLoaded=new Set();
+async function ensureHistoryLoaded(host){
+  if(historyLoaded.has(host)) return;
+  historyLoaded.add(host);
+  try{
+    const j=await (await fetch('/api/hist-ports?host='+encodeURIComponent(host))).json();
+    // as amostras ao vivo já podem ter começado: o histórico do servidor entra ANTES delas
+    const merge=(cur,old)=>{ const t0=cur.length?cur[0].t:Infinity; return [...(old||[]).filter(s=>s.t<t0),...cur].slice(-HIST_MAX); };
+    history[host]=merge(history[host]||[],j.agg);
+    for(const [name,arr] of Object.entries(j.ports||{})){
+      const k=portKey(host,name);
+      portHistory[k]=merge(portHistory[k]||[],arr);
+    }
+  }catch(e){ historyLoaded.delete(host); }
+}
+
+/* ───────── modelo de portas ───────── */
+const kindOf=p=>p.kind||(/sfp/i.test(p.name)?'sfp':'ether');
+const isPhys=p=>kindOf(p)!=='virtual';
+function portNum(p,fb){
+  let m=p.name.match(/^(\d+)[.,]/); if(m) return +m[1];
+  m=p.name.match(/(\d+)\s*$/); if(m) return +m[1];
+  return fb;
+}
+function ppModel(d){
+  const mk=arr=>arr.map((p,i)=>({p,n:portNum(p,i+1)})).sort((a,b)=>a.n-b.n||a.p.name.localeCompare(b.p.name));
+  const phys=d.ports.filter(isPhys);
+  const list=phys.length?phys:d.ports;
+  return {eth:mk(list.filter(p=>kindOf(p)!=='sfp')), sfp:mk(list.filter(p=>kindOf(p)==='sfp'))};
+}
+const physPorts=d=>{const ph=d.ports.filter(isPhys);return ph.length?ph:d.ports};
+const SPEED_CLS=[[10,'s10','10M'],[100,'fe','FE'],[1000,'ge','GbE'],[2500,'g25','2.5GbE'],[5000,'g5','5GbE'],[10000,'g10','10GbE'],[25000,'g25g','25GbE'],[40000,'g40','40GbE'],[1e9,'g100','100GbE']];
+const mbpsText=m=>m>=1000?(m/1000)+' Gbps':m+' Mbps';
+function speedInfo(p){
+  if(p.disabled) return {cls:'dis',label:'Desativada',text:'—'};
+  if(!p.running) return {cls:'off',label:'Sem link',text:'—'};
+  const m=p.speed;
+  if(!m) return {cls:'up',label:'Ativa',text:'—'};
+  for(const [mx,cls,lab] of SPEED_CLS) if(m<=mx) return {cls,label:lab,text:mbpsText(m)};
+  return {cls:'g100',label:'100GbE',text:mbpsText(m)};
+}
+function actPct(p){
+  const tot=(p.rxBps||0)+(p.txBps||0); if(!tot) return 0;
+  return Math.min(100,Math.sqrt(tot/((p.speed||1000)*1e6))*100);
+}
+const nbName=n=>n.identity||n.address||n.mac||'';
+function nbKind(n){
+  if(n.address&&data.devices.some(d=>d.host===n.address)) return 'switch';
+  return NetIcons.guessKind(n);
+}
+function fmtUptime(s){
+  const m=String(s||'').match(/^(?:(\d+)w)?(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/);
+  if(!m) return s||'';
+  const parts=[[(+m[1]||0)*7+(+m[2]||0),'d'],[+m[3]||0,'h'],[+m[4]||0,'min'],[+m[5]||0,'s']].filter(x=>x[0]);
+  return parts.slice(0,2).map(x=>x[0]+x[1]).join(' ')||'0s';
+}
+function aggRates(d){
+  const ph=physPorts(d);
+  return {rx:ph.reduce((s,p)=>s+p.rxBps,0),tx:ph.reduce((s,p)=>s+p.txBps,0)};
+}
+
+/* ───────── tela: barra superior ───────── */
+function syncChrome(){
+  const s=$('devSel');
+  const sig=data.devices.map(d=>d.host+d.name+(d.ok?1:0)).join('|');
+  if(s.dataset.sig!==sig){
+    s.dataset.sig=sig;
+    s.innerHTML='<option value="">Todos os equipamentos</option>'+data.devices.map(d=>
+      `<option value="${esc(d.host)}">${esc(d.name)} · ${esc(d.host)}${d.ok?'':' (offline)'}</option>`).join('');
+  }
+  s.value=sel;
+  $('tabSeg').hidden=!sel;
+  [...$('tabSeg').children].forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  $('rangeSeg').hidden=!!sel&&tab==='ports';
+  [...$('rangeSeg').children].forEach(b=>b.classList.toggle('active',+b.dataset.win===ui.win));
+  $('rail-overview').classList.toggle('active',!sel);
+  $('rail-grid').classList.toggle('active',!!sel&&tab==='ports');
+  $('rail-history').classList.toggle('active',!!sel&&(tab==='insights'||tab==='env'));
+}
+function setSel(host,t){
+  sel=host||''; if(t) tab=t; saveUi();
+  if(sel) ensureHistoryLoaded(sel);
+  renderMain();
+}
+$('devSel').onchange=e=>setSel(e.target.value);
+$('tabSeg').onclick=e=>{const b=e.target.closest('button[data-tab]'); if(b){tab=b.dataset.tab;saveUi();renderMain();}};
+$('rangeSeg').onclick=e=>{const b=e.target.closest('button[data-win]'); if(b){ui.win=+b.dataset.win;saveUi();renderMain();}};
+$('rail-overview').onclick=()=>setSel('');
+$('rail-grid').onclick=()=>setSel(sel||(data.devices[0]&&data.devices[0].host)||'','ports');
+$('rail-history').onclick=()=>setSel(sel||(data.devices[0]&&data.devices[0].host)||'','insights');
+$('rail-settings').onclick=()=>$('cfgbtn').click();
+// usado pelo app (Topologia -> "Abrir em Tráfego")
+window.selectDevice=(host,t)=>setSel(host,t||'ports');
+
+/* ───────── cabeçalho do equipamento ───────── */
+function headHTML(d){
+  const ph=physPorts(d), up=ph.filter(p=>p.running).length, r=aggRates(d), m=d.meta||{};
+  const sub=[`<span class="mono">${esc(d.host)}</span>`];
+  if(m.board) sub.push(`<span>${esc(m.board)}</span>`);
+  if(m.version) sub.push(`<span>RouterOS ${esc(m.version)}</span>`);
+  if(m.uptime) sub.push(`<span>ativo há ${esc(fmtUptime(m.uptime))}</span>`);
+  if(m.cpuLoad!=null) sub.push(`<span>CPU ${m.cpuLoad}%</span>`);
+  return `<div class="dvh">
+    <div class="dvh-main">
+      <div class="dvh-ico">${NetIcons.svg('switch',{size:34})}</div>
+      <div><h2>${esc(d.name)} <span class="pill ${d.ok?'up':'down'}"><i></i>${d.ok?'Online':'Offline'}</span></h2>
+        <div class="sub">${sub.join('')}</div></div>
+    </div>
+    <div class="dvh-kpis">
+      <div class="kpi"><span class="k">RX agora</span><b class="rx">${fmtBps(r.rx)}</b></div>
+      <div class="kpi"><span class="k">TX agora</span><b class="tx">${fmtBps(r.tx)}</b></div>
+      <div class="kpi"><span class="k">Portas ativas</span><b>${up}<span style="color:var(--dim)"> / ${ph.length}</span></b></div>
+    </div></div>`;
+}
+
+/* ───────── painel de portas (estilo UniFi) ───────── */
+const sqClass=(p,isSfp,host)=>`psq mp sp-${speedInfo(p).cls}${isSfp?' sfp':''}${openPort&&openPort.host===host&&openPort.name===p.name?' sel':''}`;
+function sqHTML(x,host,isSfp){
+  const p=x.p;
+  return `<div class="${sqClass(p,isSfp,host)}" style="--act:${actPct(p).toFixed(1)}" data-host="${esc(host)}" data-pname="${esc(p.name)}" data-sfp="${isSfp?1:0}">${isSfp?'<span class="tg">SFP</span>':''}<span class="n">${x.n}</span></div>`;
+}
+function nbHTML(p,host){
+  const n=p.neighbor; if(!n) return '<div class="nb"></div>';
+  return `<div class="nb mpn" data-host="${esc(host)}" data-pname="${esc(p.name)}">${NetIcons.svg(nbKind(n),{size:30})}<span>${esc(nbName(n))}</span></div>`;
+}
+function groupHTML(list,host,isSfp,two){
+  if(!list.length) return '';
+  const hasNb=list.some(x=>x.p.neighbor);
+  let cells='';
+  if(two){
+    for(let i=0;i<list.length;i+=2){
+      const a=list[i], b=list[i+1];
+      if(hasNb) cells+=nbHTML(a.p,host);
+      cells+=sqHTML(a,host,isSfp);
+      cells+=b?sqHTML(b,host,isSfp):'<div class="psq-gap"></div>';
+      if(hasNb) cells+=b?nbHTML(b.p,host):'<div class="nb"></div>';
+    }
+  }else{
+    list.forEach(a=>{ if(hasNb) cells+=nbHTML(a.p,host); cells+=sqHTML(a,host,isSfp); });
+  }
+  const cls=two?(hasNb?'r4':'r2'):(hasNb?'s2':'s1');
+  return `<div class="pgrp"><div class="pgt">${isSfp?'SFP / Fibra':'Portas de rede'}</div><div class="pg ${cls}">${cells}</div></div>`;
+}
+const LEGEND=`<div class="legend">
+  <span><i style="background:var(--sp-fe)"></i>FE</span><span><i style="background:var(--sp-ge)"></i>GbE</span>
+  <span><i style="background:var(--sp-25)"></i>2.5GbE</span><span><i style="background:var(--sp-10g)"></i>10GbE</span>
+  <span><i style="background:var(--sp-25g)"></i>25GbE</span><span><i style="background:var(--sp-off)"></i>Sem link</span>
+  <span><i class="dis"></i>Desativada</span><span><i class="act"></i>Barra inferior = atividade</span></div>`;
+let ppSig='';
+function renderPanel(d,rootEl){
+  const root=rootEl||$('ppRoot'), {eth,sfp}=ppModel(d), two=eth.length>12;
+  const sig=d.host+'|'+two+'|'+[...eth,...sfp].map(x=>x.p.name+':'+(x.p.neighbor?nbName(x.p.neighbor):'')).join(',');
+  if(sig!==root.dataset.psig){
+    root.dataset.psig=sig;
+    root.innerHTML=`<div class="ppwrap">${groupHTML(eth,d.host,false,two)}${groupHTML(sfp,d.host,true,false)}</div>`+LEGEND;
+    return;
+  }
+  root.querySelectorAll('.psq').forEach(el=>{
+    const p=findPort(d.host,el.dataset.pname); if(!p) return;
+    el.className=sqClass(p,el.dataset.sfp==='1',d.host);
+    el.style.setProperty('--act',actPct(p).toFixed(1));
+  });
+}
+
+/* ───────── filtros e tabela ───────── */
+function passFlt(p){
+  const f=ui.flt, k=kindOf(p);
+  if(k==='virtual'&&!f.virt) return false;
+  if(f.sfp&&k!=='sfp') return false;
+  if(f.use!==f.avail){ if(f.use&&!p.running) return false; if(f.avail&&p.running) return false; }
+  if(f.traffic&&(p.rxBps+p.txBps)===0) return false;
+  const sps=Object.keys(f.sp).filter(k=>f.sp[k]);
+  if(sps.length&&!sps.includes(speedInfo(p).cls)) return false;
+  const q=ui.q.trim().toLowerCase();
+  if(q){
+    const nb=p.neighbor?`${nbName(p.neighbor)} ${p.neighbor.address} ${p.neighbor.mac}`:'';
+    if(!`${p.name} ${p.comment||''} ${nb}`.toLowerCase().includes(q)) return false;
+  }
+  return true;
+}
+const KR={ether:0,sfp:1,virtual:2};
+const stRank=p=>p.disabled?2:p.running?0:1;
+const SORTS={
+  port:(a,b)=>(KR[kindOf(a.p)]-KR[kindOf(b.p)])||a.n-b.n,
+  name:(a,b)=>(a.p.comment||a.p.name).localeCompare(b.p.comment||b.p.name),
+  state:(a,b)=>stRank(a.p)-stRank(b.p),
+  speed:(a,b)=>(a.p.speed||0)-(b.p.speed||0),
+  conn:(a,b)=>(a.p.neighbor?nbName(a.p.neighbor):'￿').localeCompare(b.p.neighbor?nbName(b.p.neighbor):'￿'),
+  act:(a,b)=>(a.p.rxBps+a.p.txBps)-(b.p.rxBps+b.p.txBps),
+  txs:(a,b)=>a.p.txBytes-b.p.txBytes, rxs:(a,b)=>a.p.rxBytes-b.p.rxBytes,
+  txr:(a,b)=>a.p.txBps-b.p.txBps,     rxr:(a,b)=>a.p.rxBps-b.p.rxBps,
+};
+function rowsHTML(d){
+  const ents=d.ports.map((p,i)=>({p,n:portNum(p,i+1)})).filter(x=>passFlt(x.p));
+  const {key,dir}=ui.sort; const fn=SORTS[key]||SORTS.port;
+  ents.sort((a,b)=>dir*(fn(a,b)||0)||SORTS.port(a,b));
+  if(!ents.length) return '<tr><td colspan="10" class="empty">Nenhuma porta corresponde aos filtros.</td></tr>';
+  return ents.map(({p,n})=>{
+    const si=speedInfo(p), st=p.disabled?'dis':p.running?'up':'off';
+    const nb=p.neighbor;
+    const capBps=(p.speed||1000)*1e6;
+    const rw=Math.min(100,Math.sqrt(p.rxBps/capBps)*100), tw=Math.min(100,Math.sqrt(p.txBps/capBps)*100);
+    const virt=kindOf(p)==='virtual';
+    return `<tr class="mp ${st}" data-host="${esc(d.host)}" data-pname="${esc(p.name)}">
+      <td><span class="pb sp-${si.cls}">${virt?'·':n}</span>${virt?'—':n}</td>
+      <td class="c-name">${esc(p.comment||p.name)}${p.comment?`<small>${esc(p.name)}</small>`:''}</td>
+      <td><span class="stt ${st}"><i></i>${p.disabled?'Desativada':p.running?'Ativa':'Sem link'}</span></td>
+      <td class="t-${si.cls}"><b style="font-weight:600">${esc(si.text)}</b></td>
+      <td>${nb?`<span class="conn">${NetIcons.svg(nbKind(nb),{size:20})}<span>${esc(nbName(nb))}</span></span>`:'<span style="color:var(--dim)">—</span>'}</td>
+      <td><div class="act2"><b class="t"><i style="width:${tw}%"></i></b><b class="r"><i style="width:${rw}%"></i></b></div></td>
+      <td class="n">${fmtBytes(p.txBytes)}</td><td class="n">${fmtBytes(p.rxBytes)}</td>
+      <td class="n tx">${fmtBps(p.txBps)}</td><td class="n rx">${fmtBps(p.rxBps)}</td></tr>`;
+  }).join('');
+}
+const FLT_LABELS={use:'Em uso',avail:'Disponível',traffic:'Com tráfego',sfp:'SFP'};
+let chipsSig='';
+function renderChips(ds,el){
+  ds=Array.isArray(ds)?ds:[ds]; el=el||$('chips');
+  const allp=ds.flatMap(d=>d.ports);
+  const present=[...new Set(allp.filter(p=>isPhys(p)||ui.flt.virt).map(p=>speedInfo(p)).filter(s=>!['off','dis','up'].includes(s.cls)).map(s=>s.cls+'|'+s.label))];
+  const hasVirt=allp.some(p=>kindOf(p)==='virtual'), hasSfp=allp.some(p=>kindOf(p)==='sfp');
+  const sig=present.join(',')+hasVirt+hasSfp+JSON.stringify(ui.flt);
+  if(sig===el.dataset.csig) return; el.dataset.csig=sig;
+  const chip=(k,label,on,attr)=>`<button type="button" class="chip${on?' on':''}" ${attr}><span class="bx">✓</span>${esc(label)}</button>`;
+  let h='';
+  ['use','avail','traffic'].forEach(k=>h+=chip(k,FLT_LABELS[k],ui.flt[k],`data-f="${k}"`));
+  if(hasSfp) h+=chip('sfp','SFP',ui.flt.sfp,'data-f="sfp"');
+  present.sort((a,b)=>SPEED_CLS.findIndex(x=>x[1]===a.split('|')[0])-SPEED_CLS.findIndex(x=>x[1]===b.split('|')[0]))
+    .forEach(s=>{const [cls,label]=s.split('|'); h+=chip(cls,label,!!ui.flt.sp[cls],`data-sp="${cls}"`)});
+  if(hasVirt) h+=chip('virt','Interfaces virtuais',ui.flt.virt,'data-f="virt"');
+  el.innerHTML=h;
+}
+const COLS=[['port','Porta'],['name','Nome'],['state','Estado'],['speed','Velocidade'],['conn','Conexão'],['act','Atividade'],['txs','TX total','n'],['rxs','RX total','n'],['txr','TX agora','n'],['rxr','RX agora','n']];
+function theadHTML(){ return '<tr>'+COLS.map(([k,l,c])=>`<th data-k="${k}"${c?` class="${c}"`:''}>${l}<span class="ar"></span></th>`).join('')+'</tr>'; }
+function updateSortArrows(){ document.querySelectorAll('.ptbl th[data-k]').forEach(th=>{ th.querySelector('.ar').textContent=th.dataset.k===ui.sort.key?(ui.sort.dir>0?'▲':'▼'):''; }); }
+
+function portsFrame(){
+  return `<div id="dvHead"></div>
+    <section class="panel pp"><div id="ppRoot"></div></section>
+    <section class="panel">
+      <div class="fltbar"><div id="chips"></div><label class="search"><input id="q" placeholder="Buscar porta, nome ou conexão…" value="${esc(ui.q)}"></label></div>
+      <div class="tblwrap"><table id="ptbl" class="ptbl"><thead>${theadHTML()}</thead><tbody id="ptbody"></tbody></table></div>
+    </section>`;
+}
+function bindPortsFrame(){
+  $('q').oninput=e=>{ui.q=e.target.value;const d=dev(sel);if(d)$('ptbody').innerHTML=rowsHTML(d)};
+  $('chips').onclick=e=>{
+    const b=e.target.closest('.chip'); if(!b) return;
+    if(b.dataset.sp){ ui.flt.sp[b.dataset.sp]=!ui.flt.sp[b.dataset.sp]; b.classList.toggle('on',!!ui.flt.sp[b.dataset.sp]); }
+    else { const k=b.dataset.f; ui.flt[k]=!ui.flt[k]; b.classList.toggle('on',ui.flt[k]); if(k==='virt') $('chips').dataset.csig=''; }
+    saveUi(); const d=dev(sel); if(d){ $('ptbody').innerHTML=rowsHTML(d); renderChips(d); }
+  };
+  $('ptbl').querySelector('thead').onclick=e=>{
+    const th=e.target.closest('th[data-k]'); if(!th) return;
+    ui.sort=ui.sort.key===th.dataset.k?{key:th.dataset.k,dir:-ui.sort.dir}:{key:th.dataset.k,dir:['act','txs','rxs','txr','rxr','speed'].includes(th.dataset.k)?-1:1};
+    saveUi(); updateSortArrows(); const d=dev(sel); if(d) $('ptbody').innerHTML=rowsHTML(d);
+  };
+}
+function renderPortsView(d){
+  const m=$('main'), key='ports:'+d.host;
+  if(m.dataset.view!==key){ m.dataset.view=key; m.innerHTML=portsFrame(); bindPortsFrame(); ppSig=''; chipsSig=''; }
+  $('dvHead').innerHTML=headHTML(d);
+  renderPanel(d);
+  renderChips(d);
+  $('ptbody').innerHTML=rowsHTML(d);
+  updateSortArrows();
+}
+
+/* ───────── gráficos ───────── */
+function niceMax(v){
+  if(v<=0) return 1e5;
+  const p=Math.pow(10,Math.floor(Math.log10(v))), f=v/p;
+  return (f<=1?1:f<=2?2:f<=5?5:10)*p;
+}
+function sparkline(h,w,ht){
+  h=h.slice(-120); if(h.length<2) return '';
+  const max=Math.max(1e5,...h.map(p=>Math.max(p.rx,p.tx)));
+  const x=i=>w*(120-h.length+i)/119, y=v=>ht-2-(ht-4)*v/max;
+  const path=k=>h.map((p,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(p[k]).toFixed(1)}`).join(' ');
+  return `<svg viewBox="0 0 ${w} ${ht}" preserveAspectRatio="none"><path d="${path('rx')}" fill="none" stroke="var(--rx)" stroke-width="1.5"/><path d="${path('tx')}" fill="none" stroke="var(--txc)" stroke-width="1.5"/></svg>`;
+}
+// Gráfico de área RX/TX. n = nº de amostras da janela (eixo X fixo, preenche da direita).
+function areaChart(h,n,w,ht,pad,src){
+  h=h.slice(-n);
+  const top=pad.t, bot=ht-pad.b, left=pad.l, right=w-pad.r;
+  const max=niceMax(Math.max(0,...h.map(p=>Math.max(p.rx,p.tx)))*1.1);
+  const off=n-h.length;
+  const x=i=>left+(right-left)*(off+i)/Math.max(1,n-1), y=v=>bot-(bot-top)*v/max;
+  const line=k=>h.map((p,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(p[k]).toFixed(1)}`).join(' ');
+  const area=k=>h.length>1?`${line(k)} L${x(h.length-1).toFixed(1)},${bot} L${x(0).toFixed(1)},${bot} Z`:'';
+  const grid=[0,.25,.5,.75,1].map(f=>{const yy=y(max*f).toFixed(1);
+    return `<line x1="${left}" x2="${right}" y1="${yy}" y2="${yy}"/><text x="${left-8}" y="${(+yy+3).toFixed(1)}" text-anchor="end">${fmtBps(max*f).replace('.00','')}</text>`;}).join('');
+  const secs=n; const lab=[0,.5,1].map(f=>{const s=Math.round(secs*(1-f));return `<text x="${(left+(right-left)*f).toFixed(1)}" y="${ht-6}" text-anchor="${f===0?'start':f===1?'end':'middle'}">${s?'-'+(s>=120?Math.round(s/60)+' min':s+'s'):'agora'}</text>`}).join('');
+  return `<svg class="chart" viewBox="0 0 ${w} ${ht}" data-n="${n}" data-w="${w}" data-l="${left}" data-r="${right}" data-src="${esc(src||'dev')}">
+    <defs><linearGradient id="gRx" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--rx)" stop-opacity=".28"/><stop offset="1" stop-color="var(--rx)" stop-opacity="0"/></linearGradient>
+    <linearGradient id="gTx" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--txc)" stop-opacity=".25"/><stop offset="1" stop-color="var(--txc)" stop-opacity="0"/></linearGradient></defs>
+    <g class="grid">${grid}</g>${lab}
+    <path d="${area('rx')}" fill="url(#gRx)"/><path d="${area('tx')}" fill="url(#gTx)"/>
+    <path d="${line('rx')}" fill="none" stroke="var(--rx)" stroke-width="2" stroke-linejoin="round"/>
+    <path d="${line('tx')}" fill="none" stroke="var(--txc)" stroke-width="2" stroke-linejoin="round"/>
+    <line class="xh" x1="0" x2="0" y1="${top}" y2="${bot}" visibility="hidden"/></svg>`;
+}
+// hover do gráfico (cruzeta + valores); reaplicado após cada atualização
+function seriesFor(src){
+  if(src==='all') return sumHistory(ui.win);
+  if(src&&src.startsWith('port|')){ const [,h,n]=src.split('|'); return portHistory[portKey(h,n)]; }
+  return history[sel];
+}
+let chartHover=null; // {clientX,clientY,src}
+function applyChartHover(){
+  const tip=$('tooltip');
+  if(!chartHover){ return; }
+  const el=document.elementFromPoint(chartHover.clientX,chartHover.clientY);
+  const svg=el&&el.closest&&el.closest('svg.chart');
+  if(!svg){ chartHover=null; tip.style.display='none'; return; }
+  const r=svg.getBoundingClientRect(), n=+svg.dataset.n, w=+svg.dataset.w, l=+svg.dataset.l, rr=+svg.dataset.r;
+  const h=(seriesFor(chartHover.src)||[]).slice(-n); if(!h.length) return;
+  const xv=(chartHover.clientX-r.left)/r.width*w;
+  const idx=Math.round((xv-l)/(rr-l)*(n-1))-(n-h.length);
+  if(idx<0||idx>=h.length){ svg.querySelector('.xh').setAttribute('visibility','hidden'); tip.style.display='none'; return; }
+  const xx=l+(rr-l)*(n-h.length+idx)/Math.max(1,n-1), xh=svg.querySelector('.xh');
+  xh.setAttribute('x1',xx);xh.setAttribute('x2',xx);xh.setAttribute('visibility','visible');
+  const s=h[idx];
+  tip.innerHTML=`<div class="tn">${new Date(s.t).toLocaleTimeString('pt-BR')}</div>
+    <div class="tr"><span>RX ↓</span><b class="rx">${fmtBps(s.rx)}</b></div><div class="tr"><span>TX ↑</span><b class="tx">${fmtBps(s.tx)}</b></div>`;
+  tip.style.display='block'; positionTip({clientX:chartHover.clientX,clientY:chartHover.clientY});
+}
+document.addEventListener('mousemove',e=>{
+  const svg=e.target.closest&&e.target.closest('svg.chart');
+  if(!svg){ if(chartHover){ chartHover=null; $('tooltip').style.display='none'; document.querySelectorAll('svg.chart .xh').forEach(x=>x.setAttribute('visibility','hidden')); } return; }
+  chartHover={clientX:e.clientX,clientY:e.clientY,src:svg.dataset.src};
+  applyChartHover();
+});
+
+/* ───────── visão geral ───────── */
+function miniPanel(d){
+  const {eth,sfp}=ppModel(d);
+  const sq=x=>`<i class="sp-${speedInfo(x.p).cls}" title="${esc(x.p.name)}"></i>`;
+  return eth.map(sq).join('')+(sfp.length?'<i class="gap"></i>'+sfp.map(sq).join(''):'');
+}
+/* ───────── visão geral (painel da rede, estilo UniFi) ───────── */
+// soma do tráfego de todos os equipamentos, alinhada pelo fim (todos amostram a cada 1 s)
+function sumHistory(win){
+  const hs=data.devices.filter(d=>d.ok).map(d=>history[d.host]||[]).filter(h=>h.length);
+  if(!hs.length) return [];
+  const n=Math.min(win,Math.max(...hs.map(h=>h.length))), out=[];
+  for(let i=1;i<=n;i++){
+    let rx=0,tx=0,t=0;
+    hs.forEach(h=>{ const s=h[h.length-i]; if(s){ rx+=s.rx; tx+=s.tx; t=Math.max(t,s.t); } });
+    out.push({t,rx,tx});
+  }
+  return out.reverse();
+}
+const utilPct=p=>Math.min(100,Math.max(p.rxBps,p.txBps)/((p.speed||1000)*1e6)*100);
+const tile=(icon,name,val,attrs,cls)=>`<div class="tile${cls?' '+cls:''}"${attrs||''} title="${esc(name)}"><span class="tl-ico">${icon}</span><b>${esc(name)}</b><small>${val}</small></div>`;
+
+function deviceCard(d){
+  const m=d.meta||{}, sub=[d.host]; if(m.board) sub.push(m.board);
+  if(!d.ok) return `<div class="card" data-h="${esc(d.host)}" draggable="true">
+    <div class="chead"><div class="ci">${NetIcons.svg('switch',{size:28})}</div>
+      <div class="ct"><div class="cname"><span class="draghandle" title="Arraste para reordenar">⠿</span>${esc(d.name)}</div><div class="cip">${esc(d.host)}</div></div>
+      <span class="pill down"><i></i>Offline</span></div>
+    <div class="err">${esc(d.error||'')}</div></div>`;
+  const ph=physPorts(d), up=ph.filter(p=>p.running).length, r=aggRates(d);
+  const active=ph.filter(p=>p.running).sort((a,b)=>(b.rxBps+b.txBps)-(a.rxBps+a.txBps));
+  const maxA=Math.max(1e5,...active.map(p=>p.rxBps+p.txBps)), TOP=5;
+  const rows=active.slice(0,TOP).map(p=>`<div class="alrow mp" data-host="${esc(d.host)}" data-pname="${esc(p.name)}">
+      <span class="aln">${esc(p.comment||p.name)}${p.neighbor?` <span style="color:var(--dim)">· ${esc(nbName(p.neighbor))}</span>`:''}</span>
+      <span class="albar"><i style="width:${(p.rxBps+p.txBps)/maxA*100}%"></i></span>
+      <span class="alv">${fmtBps(p.rxBps+p.txBps)}</span></div>`).join('')||'<div class="alempty">Nenhuma porta ativa</div>';
+  return `<div class="card" data-h="${esc(d.host)}" draggable="true">
+    <div class="chead"><div class="ci">${NetIcons.svg('switch',{size:28})}</div>
+      <div class="ct"><div class="cname"><span class="draghandle" title="Arraste para reordenar">⠿</span>${esc(d.name)}</div>
+        <div class="cip">${esc(sub.join(' · '))} · ${up}/${ph.length} ativas</div></div>
+      <span class="pill up"><i></i>Online</span></div>
+    <div class="minipanel">${miniPanel(d)}</div>
+    <div class="cmid">
+      <div class="cmetrics"><div><div class="lbl">RX agora</div><div class="val rx">${fmtBps(r.rx)}</div></div>
+        <div><div class="lbl">TX agora</div><div class="val tx">${fmtBps(r.tx)}</div></div></div>
+      <div class="minispark">${sparkline(history[d.host]||[],130,44)}</div>
+    </div>
+    <div class="activelist"><div class="alhead">Portas mais ativas</div>${rows}${active.length>TOP?`<div class="alempty">+${active.length-TOP} porta(s) ativa(s)</div>`:''}</div>
+  </div>`;
+}
+
+function renderOverview(){
+  if(!data.devices.length) return {A:'<div class="panel empty">Nenhum equipamento cadastrado. Use o botão ⚙ ao lado do seletor para adicionar.</div>',S:'',B:''};
+  const oks=data.devices.filter(d=>d.ok);
+  let rxT=0,txT=0,upP=0,totP=0,worst=null;
+  const devU=[];                                   // maior utilização de link por equipamento
+  oks.forEach(d=>{
+    const r=aggRates(d); rxT+=r.rx; txT+=r.tx;
+    const ph=physPorts(d); totP+=ph.length; upP+=ph.filter(p=>p.running).length;
+    let best=null; ph.forEach(p=>{ if(!p.running) return; const u=utilPct(p); if(!best||u>best.u) best={u,p}; });
+    if(best){ devU.push({d,...best}); if(!worst||best.u>worst.u) worst={d,...best}; }
+  });
+  const series=sumHistory(ui.win);
+
+  // tops (estilo "Top APs / Top Clients / Top Apps" do UniFi)
+  const topDev=oks.map(d=>({d,t:aggRates(d)})).map(x=>({...x,tot:x.t.rx+x.t.tx})).sort((a,b)=>b.tot-a.tot).slice(0,6);
+  const allPorts=[]; oks.forEach(d=>physPorts(d).forEach(p=>{ const tot=p.rxBps+p.txBps; if(tot>0) allPorts.push({d,p,tot}); }));
+  const topPort=allPorts.sort((a,b)=>b.tot-a.tot).slice(0,6);
+  const nbAgg=new Map();
+  allPorts.forEach(x=>{ const n=x.p.neighbor; if(!n) return; const k=nbName(n)+'|'+n.address; const e=nbAgg.get(k)||{n,tot:0,via:x}; e.tot+=x.tot; nbAgg.set(k,e); });
+  const topNb=[...nbAgg.values()].sort((a,b)=>b.tot-a.tot).slice(0,6);
+  const none='<div class="alempty">Sem tráfego no momento.</div>';
+
+  // barra de utilização dos links (estilo "AP Deployment Density")
+  const marks=devU.map((x,i)=>`<span class="um${x.u>=80?' hot':x.u>=50?' warm':''}" style="left:${Math.max(1.5,Math.min(98.5,x.u))}%" title="${esc(x.d.name)} · ${esc(x.p.name)} · ${x.u.toFixed(1)}%"><i>${i+1}</i></span>`).join('');
+
+  const A=`<div class="kcards">
+      <div class="kcard"><div class="k">Equipamentos online</div><div class="v">${oks.length}<small> de ${data.devices.length}</small></div></div>
+      <div class="kcard"><div class="k">Portas ativas</div><div class="v">${upP}<small> de ${totP}</small></div></div>
+      <div class="kcard"><div class="k">Download total</div><div class="v rx">↓ ${fmtBps(rxT)}</div></div>
+      <div class="kcard"><div class="k">Upload total</div><div class="v tx">↑ ${fmtBps(txT)}</div></div>
+      <div class="kcard"><div class="k">Link mais carregado</div><div class="v">${worst?worst.u.toFixed(1)+'%':'—'}<br><small>${worst?esc(worst.d.name)+' · '+esc(worst.p.name):''}</small></div></div>
+    </div>
+    `;
+  const S=`<section class="panel">
+      <div class="chart-head"><div><h3>Saúde da rede</h3><div class="meta" style="margin:0">tráfego somado de todos os equipamentos</div></div>
+        <div class="chartlegend"><span><i style="background:var(--rx)"></i>Download ↓</span><span><i style="background:var(--txc)"></i>Upload ↑</span></div></div>
+      <div class="chartwrap">${series.length>=2?areaChart(series,ui.win,1000,250,{l:62,r:14,t:10,b:22},'all'):'<div class="empty">coletando histórico…</div>'}</div>
+    </section>
+    <div class="tops">
+      <section class="panel"><h3>Top equipamentos</h3><div class="meta">tráfego atual (RX + TX)</div>
+        <div class="tiles">${topDev.filter(x=>x.tot>0).map(x=>tile(NetIcons.svg('switch',{size:30}),x.d.name,fmtBps(x.tot),` data-open="${esc(x.d.host)}"`,'go')).join('')||none}</div></section>
+      <section class="panel"><h3>Top portas</h3><div class="meta">entre todos os equipamentos</div>
+        <div class="tiles">${topPort.map(x=>tile(NetIcons.svg(x.p.neighbor?nbKind(x.p.neighbor):'switch',{size:30}),(x.p.comment||x.p.name),fmtBps(x.tot),` data-host="${esc(x.d.host)}" data-pname="${esc(x.p.name)}"`,'mp')).join('')||none}</div></section>
+      <section class="panel"><h3>Top vizinhos</h3><div class="meta">por tráfego nas portas onde aparecem</div>
+        <div class="tiles">${topNb.map(x=>tile(NetIcons.svg(nbKind(x.n),{size:30}),nbName(x.n),fmtBps(x.tot),` data-host="${esc(x.via.d.host)}" data-pname="${esc(x.via.p.name)}"`,'mp')).join('')||none}</div></section>
+    </div>
+    `;
+  const B=`<section class="panel">
+      <h3>Utilização dos links</h3><div class="meta">porta mais carregada de cada equipamento, em % da velocidade negociada</div>
+      <div class="ubar"><div class="ugrad">${marks}</div>
+        <div class="uscale"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div></div>
+      <div class="ukey">${devU.map((x,i)=>`<span class="uk"><i>${i+1}</i>${esc(x.d.name)} <b>${x.u.toFixed(1)}%</b></span>`).join('')||'<span class="alempty">Nenhuma porta ativa.</span>'}</div>
+    </section>
+    `;
+  return {A,S,B};
+}
+
+/* ───────── visão geral: resumo no topo e, abaixo, o painel completo de cada equipamento ao mesmo tempo ───────── */
+const HACK_COLORS=['#6366f1','#0ea5e9','#10b981','#f59e0b','#ec4899','#8b5cf6'];
+function devUtilHTML(d){
+  const act=physPorts(d).filter(p=>p.running).map(p=>({p,u:utilPct(p)})).sort((a,b)=>b.u-a.u);
+  const marks=act.slice(0,12).map((x,i)=>`<span class="um${x.u>=80?' hot':x.u>=50?' warm':''}" style="left:${Math.max(1.5,Math.min(98.5,x.u))}%" title="${esc(x.p.comment||x.p.name)} · ${x.u.toFixed(1)}%"><i>${i+1}</i></span>`).join('');
+  return `<h3>Utilização dos links</h3><div class="meta">portas mais carregadas deste equipamento, em % da velocidade negociada</div>
+    <div class="ubar"><div class="ugrad">${marks}</div><div class="uscale"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div></div>
+    <div class="ukey">${act.slice(0,6).map((x,i)=>`<span class="uk"><i>${i+1}</i>${esc(x.p.comment||x.p.name)} <b>${x.u.toFixed(1)}%</b></span>`).join('')||'<span class="alempty">Nenhuma porta ativa.</span>'}</div>`;
+}
+function devSecFrame(d,idx){
+  const st=`style="--hk:${HACK_COLORS[idx%HACK_COLORS.length]}"`;
+  if(!d.ok) return `<section class="devsec" ${st} data-host="${esc(d.host)}"><div class="dvh-wrap"></div><div class="panel"><div class="err">${esc(d.error||'offline')}</div><div class="meta">Nova tentativa a cada segundo. Confira IP, usuário e senha em “⚙ Equipamentos”.</div></div></section>`;
+  return `<section class="devsec" ${st} data-host="${esc(d.host)}"><div class="dvh-wrap"></div>
+    <section class="panel devutil"></section>
+    <section class="panel pp"><div class="ppRoot"></div></section>
+    <section class="panel"><div class="tblwrap"><table class="ptbl"><thead>${theadHTML()}</thead><tbody class="ptbody"></tbody></table></div></section></section>`;
+}
+const putHTML=(el,h)=>{ if(el&&el.dataset.h!==h){ el.dataset.h=h; el.innerHTML=h; } };
+function refreshTables(){
+  data.devices.filter(d=>d.ok).forEach(d=>{
+    const sec=document.querySelector(`.devsec[data-host="${CSS.escape(d.host)}"]`); if(!sec) return;
+    putHTML(sec.querySelector('.ptbody'),rowsHTML(d));
+  });
+  updateSortArrows();
+}
+function bindOverview(){
+  $('q').oninput=e=>{ui.q=e.target.value;refreshTables()};
+  $('chips').onclick=e=>{
+    const b=e.target.closest('.chip'); if(!b) return;
+    if(b.dataset.sp){ ui.flt.sp[b.dataset.sp]=!ui.flt.sp[b.dataset.sp]; }
+    else { const k=b.dataset.f; ui.flt[k]=!ui.flt[k]; }
+    saveUi(); $('chips').dataset.csig=''; renderChips(data.devices.filter(d=>d.ok),$('chips')); refreshTables();
+  };
+  $('ovDevs').addEventListener('click',e=>{
+    const th=e.target.closest('th[data-k]'); if(!th) return;
+    ui.sort=ui.sort.key===th.dataset.k?{key:th.dataset.k,dir:-ui.sort.dir}:{key:th.dataset.k,dir:['act','txs','rxs','txr','rxr','speed'].includes(th.dataset.k)?-1:1};
+    saveUi(); refreshTables();
+  });
+}
+// Barra geral (ao vivo, a cada atualização): cada hack (.4, .5, .6, .7…) ocupa a fatia que representa do tráfego que chega por eles.
+// Barra de baixo: o uso total do equipamento da Internet (10.20.12.1), que recebe tudo.
+function inetHost(){
+  const ds=data.devices, byRole=ds.find(d=>topo&&topo.inv&&topo.inv[d.host]&&topo.inv[d.host].rtype==='internet');
+  return (byRole||ds[0]||{}).host;
+}
+function renderUtilShare(){
+  const all=data.devices, bar=$('sbar'); if(!bar) return;
+  const ih=inetHost(), inet=all.find(d=>d.host===ih), colorOf=d=>HACK_COLORS[all.indexOf(d)%HACK_COLORS.length];
+  const ds=all.filter(d=>d.host!==ih);
+  const tot=ds.map(d=>{const r=d.ok?aggRates(d):{rx:0,tx:0}; return r.rx+r.tx;}), sum=tot.reduce((a,b)=>a+b,0);
+  const sig=ds.map(d=>d.host).join(',');
+  if(bar.dataset.n!==sig){
+    bar.dataset.n=sig;
+    bar.innerHTML=ds.map((d,i)=>`<span data-i="${i}" style="--hk:${colorOf(d)}"></span>`).join('')+'<span class="none"></span>';
+  }
+  const none=bar.querySelector('.none'), anyOn=ds.some(d=>d.ok);
+  none.style.display=sum>0?'none':'flex';
+  none.textContent=anyOn?'Sem tráfego no momento':'Nenhum equipamento online';
+  [...bar.querySelectorAll('span[data-i]')].forEach((sp,i)=>{
+    const pct=sum>0?tot[i]/sum*100:0;
+    sp.style.width=pct+'%';
+    const nm=esc(ds[i].name);
+    const txt=pct>=24?`${nm} · ${pct.toFixed(0)}% · ${fmtBps(tot[i])}`:pct>=12?`${nm} · ${pct.toFixed(0)}%`:pct>=4?pct.toFixed(0)+'%':'';
+    if(sp.dataset.t!==txt){ sp.dataset.t=txt; sp.innerHTML=txt; }
+    sp.title=`${ds[i].name}: ${pct.toFixed(1)}% do tráfego (${fmtBps(tot[i])})`;
+  });
+  putHTML($('slegend'),ds.map((d,i)=>`<span class="sl" style="--hk:${colorOf(d)}"><i></i>${esc(d.name)} <b>${(sum>0?tot[i]/sum*100:0).toFixed(1)}%</b> <span>${d.ok?fmtBps(tot[i]):'offline'}</span></span>`).join(''));
+  // uso total do equipamento da Internet
+  if(inet){
+    const act=inet.ok?physPorts(inet).filter(p=>p.running).map(p=>({p,u:utilPct(p)})).sort((a,b)=>b.u-a.u):[];
+    const r=inet.ok?aggRates(inet):{rx:0,tx:0};
+    const marks=act.slice(0,3).map((x,k)=>`<span class="um${x.u>=80?' hot':x.u>=50?' warm':''}" style="left:${Math.max(1.5,Math.min(98.5,x.u))}%" title="${esc(x.p.comment||x.p.name)} · ${x.u.toFixed(1)}%"><i>${k+1}</i></span>`).join('');
+    putHTML($('inethd'),`${esc(inet.name)} <small>${esc(inet.host)} · Internet — recebe o tráfego de todos os hacks</small>`);
+    putHTML($('perbox'),`<div class="pbrow" style="--hk:${colorOf(inet)}"><span class="pbn" title="${esc(inet.name)} · ${esc(inet.host)}"><i></i>${esc(inet.name)}</span><div class="ugrad">${marks}</div><b class="pv">${inet.ok&&act.length?act[0].u.toFixed(1)+'%':'—'}</b></div>
+      <div class="pbscale"><span></span><div class="uscale"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div><span></span></div>
+      <div class="ukey"><span class="uk">${inet.ok?`↓ <b>${fmtBps(r.rx)}</b> recebendo · ↑ <b>${fmtBps(r.tx)}</b> enviando · ${physPorts(inet).filter(p=>p.running).length}/${physPorts(inet).length} portas ativas`:'equipamento offline'}</span></div>`);
+  }
+  const lt=$('liveTag'); if(lt) lt.textContent='● ao vivo · '+new Date().toLocaleTimeString('pt-BR');
+}
+function renderOverviewView(){
+  const m=$('main'), key='ov:'+data.devices.map(d=>d.host+(d.ok?1:0)).join(',');
+  if(m.dataset.view!==key){
+    m.dataset.view=key;
+    m.innerHTML=`<div class="ovwrap">
+      <div id="ovDevsBox"><h3 class="sechd">Equipamentos</h3>
+      <section class="panel ovfilters"><div class="fltbar"><div class="chips" id="chips"></div><label class="search"><input id="q" placeholder="Buscar porta, nome ou conexão em todos os equipamentos…" value="${esc(ui.q)}"></label></div></section>
+      <div id="ovDevs">${data.devices.map((d,i)=>devSecFrame(d,i)).join('')}</div></div>
+      <div id="ovK"></div><div id="ovUtil"><section class="panel"><h3>Utilização dos links</h3><span class="live" id="liveTag">● ao vivo</span><div class="meta">tráfego que chega por cada hack: uma cor por hack, com o tamanho proporcional ao tráfego dele, atualizado em tempo real</div><div class="sbar" id="sbar"></div><div class="slegend" id="slegend"></div><div class="pbhd">Uso total — <span id="inethd"></span></div><div id="perbox"></div></section></div><div id="ovS"></div></div>`;
+    bindOverview();
+  }
+  const parts=renderOverview();
+  putHTML($('ovK'),parts.A); putHTML($('ovS'),parts.S); renderUtilShare();
+  const ord={ovK:1,ovUtil:2,ovDevsBox:3,ovS:4};   // totais, utilização (barra geral em cores + uma barra por hack), um bloco por hack e, por último, saúde e tops
+  Object.entries(ord).forEach(([id,o])=>{ $(id).style.order=o; });
+  const oks=data.devices.filter(d=>d.ok);
+  renderChips(oks,$('chips'));
+  data.devices.forEach(d=>{
+    const sec=document.querySelector(`.devsec[data-host="${CSS.escape(d.host)}"]`); if(!sec) return;
+    putHTML(sec.querySelector('.dvh-wrap'),headHTML(d));
+    if(d.ok){ putHTML(sec.querySelector('.devutil'),devUtilHTML(d)); renderPanel(d,sec.querySelector('.ppRoot')); }
+  });
+  refreshTables();
+}
+
+/* ───────── ambiente: forma de onda, waterfall e vizinhos (estilo UniFi "Environment") ───────── */
+const envOpen=new Set();
+const capOf=p=>(p.speed||1000)*1e6;
+const uOf=(rx,tx,p)=>Math.max(rx,tx)/capOf(p)*100;                    // % do link
+const logU=pct=>Math.max(0,Math.min(1,(Math.log10(Math.max(pct,0.01))+2)/4));   // 0,01% .. 100% -> 0..1
+const heat=t=>{ const k=Math.pow(t,0.7); return `hsl(${(140-85*k).toFixed(0)},${(62+28*k).toFixed(0)}%,${(27+31*k).toFixed(0)}%)`; };
+function envPorts(d){
+  const m=ppModel(d);
+  return ui.envGrp==='ether'?m.eth:ui.envGrp==='sfp'?m.sfp:[...m.eth,...m.sfp];
+}
+function waveSVG(list,host,w,ht){
+  const n=list.length; if(!n) return '';
+  const cw=w/n, bw=Math.max(3,cw*0.62);
+  let peaks='', bars='';
+  list.forEach((x,i)=>{
+    const p=x.p, cx=i*cw+cw/2;
+    const h=(portHistory[portKey(host,p.name)]||[]).slice(-ui.win);
+    let peak=0; h.forEach(s=>{ const u=uOf(s.rx,s.tx,p); if(u>peak) peak=u; });
+    const cur=p.running?uOf(p.rxBps,p.txBps,p):0;
+    if(peak>0.01){ const y=ht*(1-logU(peak)); peaks+=`<rect x="${(cx-bw/2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${(ht-y).toFixed(1)}" rx="1.5" fill="${heat(logU(peak))}" opacity=".28"/>`; }
+    if(cur>0.01){ const y=ht*(1-logU(cur)); bars+=`<rect x="${(cx-bw/2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${(ht-y).toFixed(1)}" rx="1.5" fill="${heat(logU(cur))}"/>`; }
+    else if(p.running) bars+=`<rect x="${(cx-bw/2).toFixed(1)}" y="${ht-2}" width="${bw.toFixed(1)}" height="2" rx="1" fill="${heat(0)}"/>`;
+  });
+  const grid=[0.01,0.1,1,10,100].map(v=>{const y=(ht*(1-logU(v))).toFixed(1);return `<line x1="0" x2="${w}" y1="${y}" y2="${y}"/>`}).join('');
+  return `<svg viewBox="0 0 ${w} ${ht}" preserveAspectRatio="none" class="wave"><g class="grid">${grid}</g>${peaks}${bars}</svg>`;
+}
+function drawWaterfall(list,host){
+  const cv=$('envWf'); if(!cv||!list.length) return;
+  const n=list.length, rows=60, cw=14, ch=4;
+  cv.width=n*cw; cv.height=rows*ch;
+  const ctx=cv.getContext('2d'), step=Math.max(1,Math.round(ui.win/rows));
+  const empty=getComputedStyle(document.body).getPropertyValue('--soft').trim()||'#eef0f6';
+  list.forEach((x,i)=>{
+    const p=x.p, h=portHistory[portKey(host,p.name)]||[];
+    for(let r=0;r<rows;r++){
+      const end=h.length-r*step, start=end-step;
+      let u=-1;
+      for(let k=Math.max(0,start);k<end;k++){ const s=h[k]; if(!s) continue; const v=uOf(s.rx,s.tx,p); if(v>u) u=v; }
+      ctx.fillStyle=u<0?empty:heat(logU(u));
+      ctx.fillRect(i*cw,r*ch,cw,ch);
+    }
+  });
+}
+function envFrame(){
+  return `<div id="dvHead"></div>
+    <section class="panel env">
+      <div class="env-head">
+        <div><h3>Utilização por porta</h3><div class="meta" style="margin:0">% da velocidade negociada · escala logarítmica · janela do seletor de tempo</div></div>
+        <div class="env-ctl"><div class="seg" id="envGrp"><button data-g="all">Todas</button><button data-g="ether">RJ45</button><button data-g="sfp">SFP</button></div>
+          <div class="env-scale"><span>0,01%</span><i></i><span>100%</span></div></div>
+      </div>
+      <div class="elab">Forma de onda <small>agora (barra) e pico da janela (sombra)</small></div>
+      <div class="egrid"><div class="yax" id="envYax"></div><div id="envWave"></div><div class="yr"></div></div>
+      <div class="elab">Waterfall <small>cada linha é um instante; mais recente no topo</small></div>
+      <div class="egrid"><div class="yax wfax"><span>agora</span><span id="wfMid"></span><span id="wfEnd"></span></div><canvas id="envWf"></canvas><div class="yr"><span>tempo</span></div></div>
+      <div class="egrid"><div></div><div class="xax" id="envXax"></div><div></div></div>
+    </section>
+    <section class="panel"><h3>Vizinhos descobertos</h3><div class="meta">equipamentos vistos nas portas (LLDP / MNDP / CDP)</div>
+      <div class="tblwrap"><table id="envTbl"><thead><tr><th style="width:34px"></th><th>Porta</th><th>Vizinho</th><th>Endereço IP</th><th>MAC</th><th>Plataforma / modelo</th><th>Versão</th><th>Velocidade</th><th>Utilização</th></tr></thead><tbody id="envTb"></tbody></table></div>
+    </section>`;
+}
+let envSig='';
+function renderEnvView(d){
+  const m=$('main'), key='env:'+d.host;
+  if(m.dataset.view!==key){ m.dataset.view=key; m.innerHTML=envFrame(); envSig=''; bindEnv(); }
+  $('dvHead').innerHTML=headHTML(d);
+  const list=envPorts(d);
+  [...$('envGrp').children].forEach(b=>b.classList.toggle('active',b.dataset.g===ui.envGrp));
+  // partes estáticas (eixos) só quando a lista de portas / janela muda
+  const sig=d.host+'|'+ui.envGrp+'|'+ui.win+'|'+list.map(x=>x.p.name).join(',');
+  if(sig!==envSig){
+    envSig=sig;
+    $('envYax').innerHTML=[100,10,1,0.1,0.01].map(v=>`<span style="top:${(1-logU(v))*100}%">${v<1?String(v).replace('.',','):v}%</span>`).join('');
+    $('envXax').style.gridTemplateColumns=`repeat(${list.length||1},1fr)`;
+    $('envXax').innerHTML=list.map(x=>`<span>${kindOf(x.p)==='sfp'?'S':''}${x.n}</span>`).join('');
+    $('wfMid').textContent='−'+(ui.win>=600?'5 min':'1 min'); $('wfEnd').textContent='−'+(ui.win>=600?'10 min':'2 min');
+  }
+  $('envWave').innerHTML=waveSVG(list,d.host,Math.max(300,list.length*18),190);
+  drawWaterfall(list,d.host);
+  $('envTb').innerHTML=nbRowsHTML(d);
+}
+function nbRowsHTML(d){
+  const rows=envPorts(d).filter(x=>x.p.neighbor);
+  if(!rows.length) return '<tr><td colspan="9" class="empty">Nenhum vizinho descoberto neste equipamento. Ative o LLDP/MNDP (<span class="mono">/ip neighbor discovery-settings</span>) para ver os equipamentos ligados a cada porta.</td></tr>';
+  return rows.map(({p,n})=>{
+    const nb=p.neighbor, si=speedInfo(p), u=utilPct(p), open=envOpen.has(p.name);
+    let h=`<tr class="nbrow${open?' open':''}" data-p="${esc(p.name)}">
+      <td><button type="button" class="xp" aria-label="${open?'Recolher':'Expandir'}">${open?'−':'+'}</button></td>
+      <td><span class="pb sp-${si.cls}">${n}</span>${esc(p.comment||p.name)}</td>
+      <td><span class="conn">${NetIcons.svg(nbKind(nb),{size:20})}<span>${esc(nbName(nb))}</span></span></td>
+      <td class="mono">${esc(nb.address||'—')}</td><td class="mono">${esc(nb.mac||'—')}</td>
+      <td>${esc([nb.platform,nb.board].filter(Boolean).join(' · ')||'—')}</td><td>${esc(nb.version||'—')}</td>
+      <td class="t-${si.cls}"><b style="font-weight:600">${esc(si.text)}</b></td>
+      <td><div class="act2"><b class="r"><i style="width:${Math.min(100,logU(u)*100)}%"></i></b></div><small class="mono" style="color:var(--mut)">${u>=0.01?u.toFixed(u<1?2:1)+'%':'0%'}</small></td></tr>`;
+    if(open){
+      const hh=portHistory[portKey(d.host,p.name)]||[];
+      h+=`<tr class="nbdet"><td></td><td colspan="8"><div class="nbd">
+        <div class="nbd-kv">
+          <div><span>Porta local</span><b class="mono">${esc(p.name)}</b></div><div><span>Estado</span><b>${p.running?'Ativa':'Sem link'}</b></div>
+          <div><span>RX agora</span><b class="rx">${fmtBps(p.rxBps)}</b></div><div><span>TX agora</span><b class="tx">${fmtBps(p.txBps)}</b></div>
+          <div><span>RX total</span><b>${fmtBytes(p.rxBytes)}</b></div><div><span>TX total</span><b>${fmtBytes(p.txBytes)}</b></div>
+          <div class="full"><button type="button" class="ghost mp" data-host="${esc(d.host)}" data-pname="${esc(p.name)}">Abrir detalhe da porta</button></div>
+        </div>
+        <div class="nbd-ch">${hh.length>=2?areaChart(hh,ui.win,640,150,{l:56,r:10,t:8,b:20},'port|'+d.host+'|'+p.name):'<div class="meta">coletando histórico…</div>'}</div>
+      </div></td></tr>`;
+    }
+    return h;
+  }).join('');
+}
+function bindEnv(){
+  $('envGrp').onclick=e=>{ const b=e.target.closest('button[data-g]'); if(!b) return; ui.envGrp=b.dataset.g; saveUi(); renderMain(); };
+  $('envTbl').onclick=e=>{
+    if(e.target.closest('.mp')) return;
+    const tr=e.target.closest('tr.nbrow'); if(!tr) return;
+    const k=tr.dataset.p; envOpen.has(k)?envOpen.delete(k):envOpen.add(k);
+    const d=dev(sel); if(d) $('envTb').innerHTML=nbRowsHTML(d);
+  };
+}
+
+/* ───────── insights ───────── */
+function renderInsights(d){
+  const h=(history[d.host]||[]).slice(-ui.win), r=aggRates(d), ph=physPorts(d);
+  const peak=h.reduce((m,p)=>Math.max(m,p.rx+p.tx),0), avg=h.length?h.reduce((s,p)=>s+p.rx+p.tx,0)/h.length:0;
+  const up=ph.filter(p=>p.running).length;
+  const dist={}; ph.forEach(p=>{const si=speedInfo(p);const k=si.cls+'|'+(si.cls==='up'?'Ativa (vel. ?)':si.label);dist[k]=(dist[k]||0)+1});
+  const dKeys=Object.keys(dist).sort((a,b)=>{const ia=SPEED_CLS.findIndex(x=>x[1]===a.split('|')[0]),ib=SPEED_CLS.findIndex(x=>x[1]===b.split('|')[0]);return (ia<0?99:ia)-(ib<0?99:ib)});
+  const maxD=Math.max(1,...Object.values(dist));
+  const top=[...ph].sort((a,b)=>(b.rxBps+b.txBps)-(a.rxBps+a.txBps)).filter(p=>p.rxBps+p.txBps>0).slice(0,8);
+  const maxT=Math.max(1e5,...top.map(p=>p.rxBps+p.txBps));
+  return `<div id="dvHead">${headHTML(d)}</div>
+    <div class="kcards">
+      <div class="kcard"><div class="k">Agora</div><div class="v"><span class="rx">↓ ${fmtBps(r.rx)}</span><br><span class="tx">↑ ${fmtBps(r.tx)}</span></div></div>
+      <div class="kcard"><div class="k">Pico (${ui.win===600?'10 min':'2 min'})</div><div class="v">${fmtBps(peak)}<br><small>RX + TX</small></div></div>
+      <div class="kcard"><div class="k">Média (${ui.win===600?'10 min':'2 min'})</div><div class="v">${fmtBps(avg)}<br><small>RX + TX</small></div></div>
+      <div class="kcard"><div class="k">Portas ativas</div><div class="v">${up}<small> de ${ph.length}</small></div></div>
+    </div>
+    <section class="panel">
+      <div class="chart-head"><div><h3>Throughput total</h3><div class="meta" style="margin:0">soma das portas físicas</div></div>
+        <div class="chartlegend"><span><i style="background:var(--rx)"></i>RX ↓</span><span><i style="background:var(--txc)"></i>TX ↑</span></div>
+        </div>
+      <div class="chartwrap">${h.length>=2?areaChart(history[d.host]||[],ui.win,1000,260,{l:62,r:14,t:10,b:22},'dev'):'<div class="empty">coletando histórico…</div>'}</div>
+    </section>
+    <div class="cols2">
+      <section class="panel"><h3>Portas mais ativas</h3><div class="meta">consumo atual (RX + TX)</div>
+        ${top.length?top.map(p=>`<div class="alrow mp" data-host="${esc(d.host)}" data-pname="${esc(p.name)}">
+          <span class="aln">${esc(p.comment||p.name)}${p.neighbor?` <span style="color:var(--dim)">· ${esc(nbName(p.neighbor))}</span>`:''}</span>
+          <span class="albar" style="width:120px"><i style="width:${(p.rxBps+p.txBps)/maxT*100}%"></i></span>
+          <span class="alv">${fmtBps(p.rxBps+p.txBps)}</span></div>`).join(''):'<div class="alempty">Nenhuma porta com tráfego agora.</div>'}</section>
+      <section class="panel"><h3>Portas por velocidade</h3><div class="meta">link negociado</div>
+        <div class="dist">${dKeys.map(k=>{const [cls,label]=k.split('|');return `<div class="row"><span class="t-${cls}" style="font-weight:600">${esc(label)}</span><span class="bar"><i class="sp-${cls}" style="width:${dist[k]/maxD*100}%"></i></span><b>${dist[k]}</b></div>`}).join('')||'<div class="alempty">—</div>'}</div></section>
+    </div>`;
+}
+
+/* ───────── composição da tela ───────── */
+function renderMain(){
+  const m=$('main');
+  if(!m.getClientRects().length) return;       // aba oculta: não gasta CPU renderizando
+  if(!data.devices.length){ syncChrome(); m.dataset.view='none'; m.innerHTML=renderOverview().A; return; }
+  if(sel&&!dev(sel)) sel='';
+  syncChrome();
+  if(!sel){ renderOverviewView(); return; }
+  const d=dev(sel);
+  if(!d.ok){
+    m.dataset.view='err:'+d.host;
+    m.innerHTML=`<div id="dvHead">${headHTML(d)}</div><div class="panel"><h3>Sem dados</h3><div class="err">${esc(d.error||'offline')}</div><div class="meta">Nova tentativa a cada segundo. Confira IP, usuário e senha em “⚙ Equipamentos”.</div></div>`;
+    return;
+  }
+  if(tab==='ports') renderPortsView(d);
+  else if(tab==='env') renderEnvView(d);
+  else { m.dataset.view='ins:'+d.host; m.innerHTML=renderInsights(d); applyChartHover(); }
+}
+
+// clique nos cartões da visão geral abre o equipamento
+$('main').addEventListener('click',e=>{
+  if(e.target.closest('.mp')) return;                 // clique em porta é tratado abaixo
+  const c=e.target.closest('.card[data-h]'); if(c){ setSel(c.dataset.h,'ports'); return; }
+  const o=e.target.closest('[data-open]'); if(o){ setSel(o.dataset.open,'ports'); return; }
+});
+
+let draggingCard=null;
+function setupCardDrag(){
+  const grid=$('main');
+  if(grid.dataset.dragReady) return; grid.dataset.dragReady='1';
+  grid.addEventListener('dragstart',e=>{
+    const c=e.target.closest('.card[draggable="true"]'); if(!c) return;
+    draggingCard=c; c.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',c.dataset.h);
+  });
+  grid.addEventListener('dragend',e=>{
+    const c=e.target.closest('.card[draggable="true"]'); if(c) c.classList.remove('dragging');
+    const moved=!!draggingCard; draggingCard=null; if(moved) saveCardOrder();
+  });
+  grid.addEventListener('dragover',e=>{
+    if(!draggingCard) return; e.preventDefault();
+    const over=e.target.closest('.card[draggable="true"]'); if(!over||over===draggingCard) return;
+    const r=over.getBoundingClientRect();
+    const oneCol=over.parentNode.clientWidth<over.offsetWidth*1.5;   // grade de 1 coluna: decide pelo eixo Y
+    const before=oneCol?e.clientY<r.top+r.height/2:e.clientX<r.left+r.width/2;
+    over.parentNode.insertBefore(draggingCard,before?over:over.nextSibling);
+  });
+}
+async function saveCardOrder(){
+  const order=[...document.querySelectorAll('.ovgrid .card[data-h]')].map(c=>c.dataset.h);
+  data.devices.sort((a,b)=>order.indexOf(a.host)-order.indexOf(b.host));
+  try{ await fetch('/api/devices/reorder',{method:'POST',body:JSON.stringify({order})}); }catch(e){}
+}
+setupCardDrag();
+
+async function tick(){
+  try{
+    data=await (await fetch('/api/traffic')).json();
+    applyCables();
+    const now=Date.now();
+    data.devices.forEach(d=>{
+      if(!d.ok) return;
+      ensureHistoryLoaded(d.host);
+      const r=aggRates(d);
+      const h=history[d.host]||(history[d.host]=[]);
+      h.push({t:now,rx:r.rx,tx:r.tx}); if(h.length>HIST_MAX) h.shift();
+      d.ports.forEach(p=>{
+        const k=portKey(d.host,p.name), ph=portHistory[k]||(portHistory[k]=[]);
+        ph.push({t:now,rx:p.rxBps,tx:p.txBps}); if(ph.length>HIST_MAX) ph.shift();
+      });
+    });
+    if(draggingCard) return;                // não re-renderiza enquanto o usuário arrasta um card
+    renderMain();
+    if(portdlg.open) renderPortDialog();
+    refreshTip();
+  }catch(e){ $('main').dataset.view='down'; $('main').innerHTML='<div class="panel err">Servidor indisponível: '+esc(e.message)+'</div>'; }
+}
+
+/* ───────── equipamentos (diálogo de cadastro) ───────── */
+const dlg=$('dlg'),tb=document.querySelector('#devs tbody');
+const portdlg=$('portdlg');
+function row(d={}){const tr=document.createElement('tr');
+  tr.draggable=true;
+  tr.innerHTML=`<td class="drag" title="Arraste para reordenar" style="cursor:grab;color:var(--mut)">⠿</td><td><input class="n" value="${esc(d.name||'')}"></td><td><input class="h" value="${esc(d.host||'')}" placeholder="10.20.12.x"></td><td><input class="u" value="${esc(d.user||'admin')}"></td><td><input class="p" type="password" autocomplete="new-password" placeholder="${d.hasPassword?'(mantida)':'senha'}"></td><td><button type="button" class="ghost">✕</button></td>`;
+  tr.querySelector('button').onclick=()=>tr.remove();tb.appendChild(tr);}
+let dragRow=null;
+tb.addEventListener('dragstart',e=>{const tr=e.target.closest('tr');if(!tr)return;dragRow=tr;e.dataTransfer.effectAllowed='move';tr.style.opacity='.4';});
+tb.addEventListener('dragend',e=>{const tr=e.target.closest('tr');if(tr)tr.style.opacity='';dragRow=null;});
+tb.addEventListener('dragover',e=>{
+  e.preventDefault();
+  const over=e.target.closest('tr');
+  if(!over||over===dragRow||!dragRow)return;
+  const r=over.getBoundingClientRect();
+  tb.insertBefore(dragRow,(e.clientY-r.top)<r.height/2?over:over.nextSibling);
+});
+$('cfgbtn').onclick=async()=>{tb.innerHTML='';
+  (await (await fetch('/api/devices')).json()).forEach(row);$('msg').textContent='';dlg.showModal();};
+$('add').onclick=()=>row();
+$('save').onclick=async()=>{
+  const list=[...tb.rows].map(r=>({name:r.querySelector('.n').value,host:r.querySelector('.h').value,user:r.querySelector('.u').value,password:r.querySelector('.p').value}));
+  const r=await fetch('/api/devices',{method:'POST',body:JSON.stringify(list)});const j=await r.json();
+  if(!r.ok){$('msg').textContent=j.error;return}
+  dlg.close();tick();};
+
+/* ───────── tooltip das portas ───────── */
+const tip=$('tooltip');
+function positionTip(e){
+  const pad=14; let x=e.clientX+pad, y=e.clientY+pad;
+  const r=tip.getBoundingClientRect();
+  if(x+r.width>innerWidth-8) x=e.clientX-r.width-pad;
+  if(y+r.height>innerHeight-8) y=e.clientY-r.height-pad;
+  tip.style.left=Math.max(4,x)+'px'; tip.style.top=Math.max(4,y)+'px';
+}
+let tipTarget=null, tipPos=null;
+function tipHTML(t){
+  const p=findPort(t.dataset.host,t.dataset.pname); if(!p) return null;
+  const si=speedInfo(p), n=p.neighbor;
+  if(t.classList.contains('mpn')&&n) return `<div class="tn">${esc(nbName(n))} <small>${esc(n.platform||'')}</small></div>
+    ${n.address?`<div class="tr"><span>IP</span><b class="mono">${esc(n.address)}</b></div>`:''}
+    ${n.mac?`<div class="tr"><span>MAC</span><b class="mono">${esc(n.mac)}</b></div>`:''}
+    ${n.board?`<div class="tr"><span>Modelo</span><b>${esc(n.board)}</b></div>`:''}
+    ${n.version?`<div class="tr"><span>Versão</span><b>${esc(n.version)}</b></div>`:''}
+    <div class="tr"><span>Porta local</span><b>${esc(p.name)}</b></div>`;
+  return `<div class="tn">${esc(p.comment||p.name)} ${p.comment?`<small>${esc(p.name)}</small>`:''}</div>
+    <div class="tr"><span>Estado</span><b style="color:${p.disabled?'var(--mut)':p.running?'var(--ok)':'var(--bad)'}">${p.disabled?'Desativada':p.running?'Ativa':'Sem link'}</b></div>
+    ${p.running&&p.speed?`<div class="tr"><span>Velocidade</span><b>${esc(si.text)}</b></div>`:''}
+    ${n?`<div class="tr"><span>Conexão</span><b>${esc(nbName(n))}</b></div>`:''}
+    <div class="tr"><span>RX ↓</span><b class="rx">${fmtBps(p.rxBps)}</b></div>
+    <div class="tr"><span>TX ↑</span><b class="tx">${fmtBps(p.txBps)}</b></div>`;
+}
+function showTip(t,e){
+  const h=tipHTML(t); if(!h){ tip.style.display='none'; return; }
+  tipTarget={host:t.dataset.host,name:t.dataset.pname,nb:t.classList.contains('mpn')};
+  tip.innerHTML=h; tip.style.display='block'; if(e){ tipPos=e; positionTip(e); }
+}
+function refreshTip(){            // atualiza valores enquanto o mouse está parado sobre a porta
+  if(!tipTarget||tip.style.display!=='block') return;
+  const q=`[data-host="${CSS.escape(tipTarget.host)}"][data-pname="${CSS.escape(tipTarget.name)}"]${tipTarget.nb?'.mpn':'.mp'}`;
+  const t=document.querySelector(q); if(t&&tipPos){ const h=tipHTML(t); if(h) tip.innerHTML=h; }
+}
+document.addEventListener('mouseover',e=>{
+  const t=e.target.closest('.mp,.mpn'); if(!t) return;
+  showTip(t,e);
+});
+document.addEventListener('mousemove',e=>{ if(tip.style.display==='block'&&tipTarget){ tipPos=e; positionTip(e); } });
+document.addEventListener('mouseout',e=>{
+  if(e.target.closest('.mp,.mpn')&&!e.relatedTarget?.closest?.('.mp,.mpn')){ tip.style.display='none'; tipTarget=null; }
+});
+
+/* ───────── detalhe da porta (diálogo) ───────── */
+// Fase de captura: o clique numa porta abre o diálogo antes de qualquer outro handler.
+document.addEventListener('click',e=>{
+  const t=e.target.closest('.mp,.mpn');
+  if(!t||!t.dataset.host) return;
+  e.stopPropagation();
+  openPort={host:t.dataset.host,name:t.dataset.pname};
+  ensureHistoryLoaded(openPort.host);
+  renderPortDialog(); portdlg.showModal();
+  document.querySelectorAll('.psq.sel').forEach(x=>x.classList.remove('sel'));
+  t.classList.contains('psq')&&t.classList.add('sel');
+},true);
+portdlg.querySelector('.closex').onclick=()=>portdlg.close();
+portdlg.addEventListener('close',()=>{ openPort=null; document.querySelectorAll('.psq.sel').forEach(x=>x.classList.remove('sel')); });
+
+function renderPortDialog(){
+  if(!openPort) return;
+  const body=$('portdlgbody'), d=dev(openPort.host), p=d&&d.ports.find(x=>x.name===openPort.name);
+  if(!d||!p){ body.innerHTML='<p class="err">Porta não encontrada (equipamento offline?)</p>'; return; }
+  const h=portHistory[portKey(openPort.host,openPort.name)]||[], si=speedInfo(p), n=p.neighbor;
+  const chart=h.length>=2
+    ? `<div class="chartlegend" style="margin-bottom:6px"><span><i style="background:var(--rx)"></i>RX ↓</span><span><i style="background:var(--txc)"></i>TX ↑</span></div>
+       <div class="chartwrap">${areaChart(h,120,800,230,{l:62,r:12,t:10,b:22},'port|'+openPort.host+'|'+openPort.name)}</div>`
+    : '<div class="meta">coletando histórico…</div>';
+  body.innerHTML=`
+    <h3 style="margin:0 0 2px">${esc(p.comment||p.name)}</h3>
+    <div class="meta" style="margin-bottom:6px">${esc(d.name)} · ${esc(d.host)} · <span class="mono">${esc(p.name)}</span>${kindOf(p)==='sfp'?' · SFP':''}${kindOf(p)==='virtual'?' · interface virtual':''}</div>
+    <div class="pdkv">
+      <div><div class="lbl">Estado</div><div class="val t"><span class="stt ${p.disabled?'dis':p.running?'up':''}"><i></i>${p.disabled?'Desativada':p.running?'Ativa':'Sem link'}</span></div></div>
+      <div><div class="lbl">Velocidade</div><div class="val t t-${si.cls}">${esc(si.text)}</div></div>
+      <div><div class="lbl">RX agora</div><div class="val rx">${fmtBps(p.rxBps)}</div></div>
+      <div><div class="lbl">TX agora</div><div class="val tx">${fmtBps(p.txBps)}</div></div>
+      <div><div class="lbl">RX total</div><div class="val">${fmtBytes(p.rxBytes)}</div></div>
+      <div><div class="lbl">TX total</div><div class="val">${fmtBytes(p.txBytes)}</div></div>
+    </div>
+    ${n?`<div class="nbcard">${NetIcons.svg(nbKind(n),{size:38})}<div><b>${esc(nbName(n))}</b><small>${[n.address,n.mac,n.platform,n.board,n.version].filter(Boolean).map(esc).join(' · ')}</small></div></div>`:''}
+    ${chart}`;
+}
+
+/* ───────── tema (somente fora do app) ───────── */
+const themeBtn=$('themebtn');
+function applyTheme(t){
+  if(t) document.documentElement.setAttribute('data-theme',t);
+  else document.documentElement.removeAttribute('data-theme');
+  const dark=t?t==='dark':matchMedia('(prefers-color-scheme: dark)').matches;
+  themeBtn.textContent=dark?'☀️':'🌙';
+}
+if(!embedded){
+  let saved=null;
+  try{saved=localStorage.getItem('theme')}catch(e){}
+  applyTheme(saved);
+  themeBtn.onclick=()=>{
+    const dark=document.documentElement.getAttribute('data-theme')
+      ? document.documentElement.getAttribute('data-theme')==='dark'
+      : matchMedia('(prefers-color-scheme: dark)').matches;
+    const next=dark?'light':'dark';
+    applyTheme(next);
+    try{localStorage.setItem('theme',next)}catch(e){}
+  };
+}
+
+/* ───────── cabos definidos na Topologia (porta a porta) ───────── */
+// Portas sem vizinho LLDP/MNDP herdam o equipamento ligado pelo cabo definido na aba Topologia.
+let topo={links:[],inv:{}};
+async function loadTopo(){
+  try{ const j=await (await fetch('/api/topology')).json(); topo={links:j.links||[],inv:j.inventory||{}}; }catch(e){}
+}
+window.reloadTopo=loadTopo;
+function portLabelOf(name){
+  const m=String(name).match(/^(\d+)[.,]/)||String(name).match(/(\d+)\s*$/);
+  return m?(/sfp|qsfp/i.test(name)?'S':'')+(+m[1]):'';
+}
+function applyCables(){
+  if(!topo.links.length) return;
+  const nameOf=ip=>(topo.inv[ip]&&topo.inv[ip].name)||(data.devices.find(d=>d.host===ip)||{}).name||ip;
+  data.devices.forEach(d=>{
+    if(!d.ok) return;
+    physPorts(d).forEach((p,i)=>{
+      if(p.neighbor) return;
+      const lb=portLabelOf(p.name)||((kindOf(p)==='sfp'?'S':'')+(i+1));
+      const l=topo.links.find(l=>(l[0]===d.host&&l[2]===lb)||(l[1]===d.host&&l[3]===lb));
+      if(!l) return;
+      const other=l[0]===d.host?l[1]:l[0];
+      const md=l[4]||((/^S/i.test(l[2])||/^S/i.test(l[3]))?'fibra':'utp'), virt=!!(topo.inv[other]&&topo.inv[other].sw);
+      p.neighbor={identity:nameOf(other),address:virt?'':other,mac:'',platform:'cabo definido · '+(md==='fibra'?'fibra óptica':'cabo de rede (UTP)'),board:'',version:'',cable:true};
+    });
+  });
+}
+loadTopo(); setInterval(loadTopo,6000);
+tick(); setInterval(tick,1000);
+</script>
+</body>
+</html>

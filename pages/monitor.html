@@ -1,0 +1,157 @@
+<!-- ══ MONITOR (mesmo padrão visual da Topologia: painel lateral + área principal, usando toda a largura) ══ -->
+<div class="nm nm-wrap">
+  <div class="nm-layout">
+
+    <!-- Painel lateral: status, busca, tipos, exibição e alertas -->
+    <aside class="tsb nm-side" id="monSide">
+      <div class="tsb-top">
+        <div class="nm-seg" id="statusSeg" role="group" aria-label="Status">
+          <button type="button" data-st="all" class="active">Todos</button>
+          <button type="button" data-st="online"><i class="nm-dot on"></i>Online</button>
+          <button type="button" data-st="offline"><i class="nm-dot off"></i>Offline</button>
+        </div>
+      </div>
+      <label class="tsb-search">
+        <i class="fas fa-magnifying-glass"></i>
+        <input id="inpSearch" type="text" placeholder="Buscar nome, IP, hostname ou porta…" autocomplete="off">
+      </label>
+      <div class="tsb-scroll">
+        <section class="tsb-grp" data-g="types">
+          <h6>Tipo de equipamento<i class="chv"></i></h6>
+          <div class="body flush"><section class="nm-kpis" id="kpiRow"></section></div>
+        </section>
+
+        <section class="tsb-grp" data-g="view">
+          <h6>Exibição<i class="chv"></i></h6>
+          <div class="body">
+            <label class="nm-select" title="Ordenar">
+              <i class="fas fa-arrow-down-wide-short"></i>
+              <select id="selSort">
+                <option value="status">Ordenar por status</option>
+                <option value="ip">Ordenar por IP</option>
+                <option value="name">Ordenar por nome</option>
+                <option value="rt">Ordenar por resposta</option>
+              </select>
+            </label>
+            <label class="nm-select" title="Agrupar">
+              <i class="fas fa-layer-group"></i>
+              <select id="selGroup">
+                <option value="type">Agrupar por tipo</option>
+                <option value="range">Agrupar por faixa</option>
+                <option value="none">Sem grupos</option>
+              </select>
+            </label>
+            <div class="nm-seg nm-seg-icons" id="viewSeg" role="group" aria-label="Visualização">
+              <button type="button" data-v="grid" class="active" title="Cartões"><i class="fas fa-table-cells-large"></i>Cartões</button>
+              <button type="button" data-v="list" title="Tabela"><i class="fas fa-list"></i>Tabela</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="tsb-grp nm-alerts" id="alertsPanel" data-g="alerts">
+          <h6>Atenção<span class="nm-badge" id="alertCount">0</span><i class="chv"></i></h6>
+          <div class="body flush"><div id="alertList" class="nm-alertlist"></div></div>
+        </section>
+      </div>
+    </aside>
+
+    <!-- Área principal -->
+    <div class="nm-main topo-map-section">
+      <!-- Barra de comando: estado do monitoramento + ações -->
+      <section class="nm-cmd" id="monBar">
+        <div class="nm-cmd-main">
+          <div class="nm-state" id="monState" data-state="idle">
+            <span class="nm-state-led"></span>
+            <div class="nm-state-txt">
+              <strong id="monStateTitle">Monitoramento pausado</strong>
+              <span id="monStateSub">Clique em Iniciar para varrer a rede</span>
+            </div>
+          </div>
+          <div class="nm-cmd-actions">
+            <button id="btnMon" class="nm-btn nm-btn-primary" type="button"><i class="fas fa-play"></i>Iniciar</button>
+            <button id="btnStop" class="nm-btn nm-btn-danger d-none" type="button"><i class="fas fa-stop"></i>Parar</button>
+            <button id="btnScanNow" class="nm-btn" type="button" title="Varrer agora"><i class="fas fa-rotate"></i><span>Varrer agora</span></button>
+            <button id="btnExport" class="nm-btn" type="button" title="Exportar CSV"><i class="fas fa-file-arrow-down"></i><span>CSV</span></button>
+            <button id="btnRanges" class="nm-btn nm-btn-icon" type="button" title="Faixas de rede e hosts conhecidos"><i class="fas fa-sliders"></i></button>
+          </div>
+        </div>
+        <div class="nm-progress"><div id="monProgress" class="nm-progress-bar"></div></div>
+      </section>
+
+      <div class="nm-main-scroll">
+        <!-- Configuração (recolhível) -->
+        <section class="nm-config d-none" id="cfgPanel">
+          <div class="nm-config-col">
+            <h6><i class="fas fa-ethernet"></i>Faixas de rede</h6>
+            <div class="nm-inline">
+              <input id="inpRange" type="text" class="nm-input nm-mono" placeholder="10.20.12.1-254, /24 ou IP">
+              <button id="btnAddRange" class="nm-btn nm-btn-primary" type="button" title="Adicionar faixa"><i class="fas fa-plus"></i></button>
+            </div>
+            <div id="rangeList" class="nm-tags"></div>
+            <p class="nm-hint">As faixas valem a partir da próxima varredura completa.</p>
+          </div>
+          <div class="nm-config-col">
+            <h6><i class="fas fa-bookmark"></i>Hosts conhecidos</h6>
+            <div id="knownInfo" class="nm-known">Carregando…</div>
+          </div>
+        </section>
+
+        <!-- Resumo -->
+        <section class="nm-summary">
+          <div class="nm-card-panel nm-health">
+            <div class="nm-ring" id="healthRing">
+              <svg viewBox="0 0 80 80" aria-hidden="true">
+                <circle class="nm-ring-bg" cx="40" cy="40" r="34"/>
+                <circle class="nm-ring-fg" id="healthArc" cx="40" cy="40" r="34" stroke-dasharray="0 214"/>
+              </svg>
+              <div class="nm-ring-val"><b id="healthPct">—</b><small>%</small></div>
+            </div>
+            <div class="nm-health-info">
+              <span class="nm-eyebrow">Equipamentos conhecidos</span>
+              <div class="nm-health-big"><b id="healthOn">0</b><span>/</span><span id="healthTot">0</span></div>
+              <span class="nm-muted" id="healthSub">aguardando a primeira varredura</span>
+            </div>
+          </div>
+
+          <div class="nm-card-panel nm-nets">
+            <span class="nm-eyebrow">Redes monitoradas</span>
+            <div id="netList" class="nm-netlist"></div>
+            <div class="nm-nets-foot"><span id="stTotalLine" class="nm-muted">—</span></div>
+          </div>
+        </section>
+
+        <!-- Cartões -->
+        <div id="viewGrid">
+          <div id="deviceGrid"></div>
+          <div id="emptyState" class="nm-empty d-none">
+            <i class="fas fa-network-wired"></i>
+            <h5>Nenhum dispositivo para mostrar</h5>
+            <p id="emptyMsg">Inicie o monitoramento ou ajuste os filtros.</p>
+          </div>
+        </div>
+
+        <!-- Tabela -->
+        <div id="viewList" class="d-none">
+          <div class="nm-card-panel nm-tablewrap">
+            <table class="nm-table" id="tblDevices">
+              <thead>
+                <tr>
+                  <th style="width:28px"></th>
+                  <th>IP</th>
+                  <th>Nome</th>
+                  <th>Tipo</th>
+                  <th>Faixa</th>
+                  <th>Serviços</th>
+                  <th>Resposta</th>
+                  <th>Tempo online / Último</th>
+                </tr>
+              </thead>
+              <tbody id="tblBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>

@@ -1,0 +1,301 @@
+<!-- ══ TAB: TOPOLOGIA (estilo UniFi: árvore + infraestrutura) ═══════════ -->
+<div class="container-fluid px-3 py-3 topo-wrap">
+  <div class="topo-layout" id="topoLayout">
+
+    <!-- Barra lateral: modo, busca, destaque, filtros com contagem, rótulos -->
+    <aside class="tsb" id="topoSide">
+      <div class="tsb-top">
+        <div class="nm-seg" id="topoMode" role="group" aria-label="Visão">
+          <button type="button" data-m="tree" class="active"><i class="fas fa-sitemap"></i>Topologia</button>
+          <button type="button" data-m="infra"><i class="fas fa-server"></i>Infraestrutura</button>
+          <button type="button" data-m="rack"><i class="fas fa-table-cells-large"></i>Racks</button>
+        </div>
+        <button id="btnSideClose" class="tsb-x" type="button" title="Recolher painel" aria-label="Recolher painel"><i class="fas fa-angles-left"></i></button>
+      </div>
+      <label class="tsb-search"><i class="fas fa-magnifying-glass"></i><input id="topoSearch" type="search" placeholder="Buscar equipamento…" autocomplete="off"></label>
+      <div class="tsb-scroll">
+        <div class="tsb-tog"><span>Seleção em destaque</span><label class="sw"><input type="checkbox" id="swSpot"><i></i></label></div>
+
+        <div id="sbTree">
+          <section class="tsb-grp" data-g="status"><h6>Status<i class="chv"></i></h6><div class="body" id="fltStatus"></div></section>
+          <section class="tsb-grp" data-g="type"><h6>Tipo de equipamento<i class="chv"></i></h6><div class="body" id="fltType"></div></section>
+          <section class="tsb-grp" data-g="labels"><h6>Rótulos<i class="chv"></i></h6><div class="body" id="fltLabels"></div></section>
+        </div>
+
+        <div id="sbInfra" class="d-none">
+          <div class="tsb-tog"><span>Mostrar CPU e memória</span><label class="sw"><input type="checkbox" id="swCpuMem" checked><i></i></label></div>
+          <section class="tsb-grp" data-g="devs"><h6>Equipamentos<i class="chv"></i></h6><div class="body flush" id="infraList"></div></section>
+          <button id="btnAddDev" class="tsb-link" type="button"><i class="fas fa-plus"></i>Adicionar equipamento</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Mapa -->
+    <div class="topo-map-section">
+      <div class="topo-toolbar">
+        <button id="btnSideOpen" class="nm-btn nm-btn-icon" type="button" title="Mostrar filtros"><i class="fas fa-sliders"></i></button>
+        <div class="nm-seg only-tree" id="topoOrient" role="group" aria-label="Orientação">
+          <button type="button" data-o="LR" class="active" title="Da esquerda para a direita"><i class="fas fa-arrow-right-long"></i> Horizontal</button>
+          <button type="button" data-o="TB" title="De cima para baixo"><i class="fas fa-arrow-down-long"></i> Vertical</button>
+        </div>
+        <button id="btnTopoExpand" class="nm-btn only-tree" type="button" title="Expandir todos os ramos"><i class="fas fa-sitemap"></i><span>Expandir tudo</span></button>
+        <div class="nm-seg only-rack d-none" id="rackSide" role="group" aria-label="Lado do rack">
+          <button type="button" data-s="front" class="active" title="Frente: portas e cabos de rede"><i class="fas fa-eye"></i> Frente</button>
+          <button type="button" data-s="rear" title="Fundo: energia, ventilação e blocos"><i class="fas fa-plug"></i> Fundo</button>
+        </div>
+        <button id="btnRackAdd" class="nm-btn nm-btn-primary only-rack d-none" type="button" title="Adicionar equipamento a um rack"><i class="fas fa-plus"></i><span>Adicionar equipamento</span></button>
+        <button id="btnTimeline" class="nm-btn only-infra d-none" type="button" title="Linha do tempo de eventos"><i class="fas fa-clock-rotate-left"></i><span>Linha do tempo</span></button>
+        <button id="btnUndo" class="nm-btn" type="button" title="Nada para desfazer" disabled><i class="fas fa-rotate-left"></i><span>Desfazer</span></button>
+        <span class="sp"></span>
+        <span class="topo-hint">Arraste para mover · role para dar zoom · duplo clique edita</span>
+        <span id="topoZoomLevel" class="topo-zoom-level">100%</span>
+      </div>
+
+      <div class="topo-body">
+        <aside class="tl d-none" id="tlPanel" aria-label="Linha do tempo"></aside>
+        <div class="topo-canvas">
+          <div id="topoContainer"></div>
+          <div id="infraContainer" class="d-none"></div>
+          <div id="rackContainer" class="d-none"></div>
+
+          <div class="tp-zoom" role="group" aria-label="Zoom">
+            <button id="btnTopoZoomReset" type="button" title="Ajustar à tela"><i class="fas fa-crosshairs"></i></button>
+            <button id="btnTopoZoomIn" type="button" title="Aumentar zoom"><i class="fas fa-plus"></i></button>
+            <button id="btnTopoZoomOut" type="button" title="Diminuir zoom"><i class="fas fa-minus"></i></button>
+          </div>
+
+          <div class="tp-legend" id="topoLegend">
+            <span><i style="background:var(--ok)"></i>Online</span>
+            <span><i style="background:var(--bad)"></i>Offline</span>
+            <span><u class="utp"></u>Cabo de rede (UTP)</span>
+            <span><u class="fib"></u>Fibra óptica</span>
+            <span><u class="f"></u>↓ download (linha de cima) · ↑ upload (linha de baixo)</span>
+            <span><i class="ramp"></i>0% → 100% do link</span>
+            <span><u class="d"></u>Sem resposta</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="rk-dlg" id="rkDlg"></div>
+
+      <!-- Detalhes do equipamento selecionado (gaveta sobre o mapa) -->
+      <aside class="topo-details-section" id="topoDetails" aria-label="Detalhes do equipamento">
+        <button id="btnDetailsClose" class="td-close" type="button" title="Fechar detalhes" aria-label="Fechar detalhes"><i class="fas fa-xmark"></i></button>
+        <div id="topoDetailsPanel" class="topo-details-panel">
+          <div class="td-empty"><i class="fas fa-circle-nodes"></i>Clique em um equipamento no mapa para ver detalhes</div>
+        </div>
+      </aside>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ MODAL DE DISPOSITIVO ══════════════════════════════════════════ -->
+<div class="modal fade" id="devModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <div>
+          <h5 class="modal-title" id="modTitle">Dispositivo</h5>
+          <small class="text-muted" id="modSubtitle" style="font-size:.72rem;font-family:monospace"></small>
+        </div>
+        <button class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+
+      <!-- Modal tabs -->
+      <ul class="nav nav-tabs px-3 pt-2" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="tab-info-btn"
+            data-bs-toggle="tab" data-bs-target="#tab-info" type="button" role="tab">
+            <i class="fas fa-circle-info me-1"></i>Informações
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="tab-graph-btn"
+            data-bs-toggle="tab" data-bs-target="#tab-graph" type="button" role="tab">
+            <i class="fas fa-chart-line me-1"></i>Gráficos
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="tab-settings-btn"
+            data-bs-toggle="tab" data-bs-target="#tab-settings" type="button" role="tab">
+            <i class="fas fa-sliders me-1"></i>Configuração
+          </button>
+        </li>
+      </ul>
+
+      <div class="tab-content p-3">
+
+        <!-- Aba: Informações -->
+        <div class="tab-pane fade show active" id="tab-info" role="tabpanel">
+          <div class="row g-3 mb-3">
+            <div class="col-6">
+              <div class="info-box">
+                <div class="info-label">Status</div>
+                <div id="modSt" class="info-value">—</div>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="info-box">
+                <div class="info-label">Tempo de Resposta</div>
+                <div id="modRt" class="info-value">—</div>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="info-box">
+                <div class="info-label">Online desde</div>
+                <div id="modSince" class="info-value">—</div>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="info-box">
+                <div class="info-label">Portas abertas</div>
+                <div id="modPorts" class="info-value">—</div>
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="info-box">
+                <div class="info-label">Hostname</div>
+                <div id="modHost" class="info-value">—</div>
+              </div>
+            </div>
+          </div>
+
+          <hr>
+
+          <div class="mb-3">
+            <label class="form-label">Nome</label>
+            <input id="modName" type="text" class="form-control form-control-sm"
+                   placeholder="Ex: Servidor de Arquivos">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Tipo</label>
+            <select id="modType" class="form-select form-select-sm">
+              <option value="computer">Computador</option>
+              <option value="server">Servidor</option>
+              <option value="nucleo">Núcleo</option>
+              <option value="accesspoint">Access Point</option>
+              <option value="printer">Impressora</option>
+              <option value="unknown">Desconhecido</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Papel na rede</label>
+            <select id="modRole" class="form-select form-select-sm"></select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Tipo do rack (hack)</label>
+            <select id="modRtype" class="form-select form-select-sm"></select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Notas</label>
+            <textarea id="modNotes" class="form-control form-control-sm" rows="2"
+                      placeholder="Observações sobre este dispositivo…"></textarea>
+          </div>
+        </div>
+
+        <!-- Aba: Gráficos -->
+        <div class="tab-pane fade" id="tab-graph" role="tabpanel">
+          <div class="mb-3">
+            <label class="form-label">Tipo de Gráfico</label>
+            <select id="modChartType" class="form-select form-select-sm">
+              <option value="line">Linha</option>
+              <option value="bar">Barras</option>
+              <option value="area">Área</option>
+            </select>
+          </div>
+
+          <div class="row g-3">
+            <div class="col-12">
+              <h6 style="font-size:.78rem;font-weight:700;color:var(--primary)">
+                <i class="fas fa-wave-square me-1"></i>
+                Tempo de Resposta — últimas 24h
+              </h6>
+              <div style="position:relative;height:260px">
+                <canvas id="modChart"></canvas>
+              </div>
+              <div class="row g-2 mt-2 text-center">
+                <div class="col-4">
+                  <div class="info-box">
+                    <div class="info-label">Mínimo</div>
+                    <div id="modChartMin" class="info-value">—</div>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="info-box">
+                    <div class="info-label">Máximo</div>
+                    <div id="modChartMax" class="info-value">—</div>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="info-box">
+                    <div class="info-label">Média</div>
+                    <div id="modChartAvg" class="info-value">—</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <h6 style="font-size:.78rem;font-weight:700;color:var(--primary)">
+                <i class="fas fa-circle-half-stroke me-1"></i>
+                Status Durante o Período
+              </h6>
+              <div style="position:relative;height:200px">
+                <canvas id="modStatusChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Aba: Configuração -->
+        <div class="tab-pane fade" id="tab-settings" role="tabpanel">
+          <div class="mb-3">
+            <label class="form-label">Nome customizado</label>
+            <input id="modCustomName" type="text" class="form-control form-control-sm"
+                   placeholder="Ex: Roteador Principal">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Categoria</label>
+            <select id="modCategory" class="form-select form-select-sm">
+              <option value="computer">Computador</option>
+              <option value="server">Servidor</option>
+              <option value="nucleo">Núcleo</option>
+              <option value="accesspoint">Access Point</option>
+              <option value="printer">Impressora</option>
+              <option value="unknown">Desconhecido</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Papel na rede</label>
+            <select id="modRole2" class="form-select form-select-sm"></select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Tipo do rack (hack)</label>
+            <select id="modRtype2" class="form-select form-select-sm"></select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Notas</label>
+            <textarea id="modSettingsNotes" class="form-control form-control-sm" rows="3"
+                      placeholder="Observações…"></textarea>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button id="modDel" class="btn btn-sm btn-outline-danger">
+          <i class="fas fa-trash me-1"></i>Remover
+        </button>
+        <div class="ms-auto d-flex gap-2">
+          <button class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+          <button id="modSave" class="btn btn-sm btn-primary">
+            <i class="fas fa-floppy-disk me-1"></i>Salvar
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>

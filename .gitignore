@@ -1,3 +1,7 @@
 node_modules/
 config.json
 history.json
+monitor-history.json
+monitor-stats.json
+ping-events.jsonl
+ping-history.json
