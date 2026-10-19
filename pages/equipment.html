@@ -1,0 +1,33 @@
+<!-- ══ TAB: EQUIPAMENTO (tudo que a varredura achou, menos computadores) ═══ -->
+<div class="nm nm-wrap">
+  <div class="container-fluid px-0">
+    <section class="nm-card-panel" style="margin-bottom:14px">
+      <h5 style="margin:0 0 4px;font-size:.95rem">Equipamentos</h5>
+      <p class="nm-muted" style="margin:0;font-size:.78rem">
+        Tudo que a varredura da aba Monitor encontrou, exceto computadores comuns. Ligue o interruptor dos
+        equipamentos que devem aparecer na Topologia; as associações (qual equipamento fica dentro de qual
+        hack) são definidas lá, em Infraestrutura ou no equipamento marcado como rack.
+      </p>
+    </section>
+
+    <section class="nm-card-panel nm-tablewrap">
+      <table class="nm-table" id="eqTable">
+        <thead>
+          <tr>
+            <th style="width:60px">Topologia</th>
+            <th>Equipamento</th>
+            <th>IP</th>
+            <th>Tipo</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="eqBody"></tbody>
+      </table>
+      <div id="eqEmpty" class="nm-empty d-none">
+        <i class="fas fa-network-wired"></i>
+        <h5>Nenhum equipamento encontrado</h5>
+        <p>Inicie a varredura na aba Monitor.</p>
+      </div>
+    </section>
+  </div>
+</div>

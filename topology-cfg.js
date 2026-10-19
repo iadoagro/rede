@@ -68,6 +68,7 @@ function sanitizeTopology(body) {
     const name = String(o.name == null ? '' : o.name).trim().slice(0, 60);
     const role = ROLES.includes(o.role) ? o.role : '';
     const ipv = o.sw === true && o.ip != null && HOST.test(String(o.ip).trim()) ? String(o.ip).trim() : '';
+    const rackName = o.sw !== true ? String(o.rackName == null ? '' : o.rackName).trim().slice(0, 60) : '';
     const hnum = o.sw !== true ? String(o.hnum == null ? '' : o.hnum).trim().slice(0, 12) : '';
     const andar = o.sw !== true ? String(o.andar == null ? '' : o.andar).trim().slice(0, 30) : '';
     const setor = o.sw !== true ? String(o.setor == null ? '' : o.setor).trim().slice(0, 60) : '';
@@ -78,7 +79,7 @@ function sanitizeTopology(body) {
     const u = sw ? Math.max(1, Math.min(4, Math.round(Number(o.u) || 1))) : 1;
     const rack = sw && o.rack != null && HOST.test(String(o.rack).trim()) ? String(o.rack).trim() : '';
     if (sw && ++nSw > 300) throw new Error('Switches demais');
-    if (name || ports || sfp || sw || conc || role || rtype || andar || setor || hnum || ipv) inventory[ip] = { ...(name ? { name } : {}), ports, sfp, ...(sw ? { sw: true } : {}), ...(conc ? { conc: true } : {}), ...(role ? { role } : {}), ...(rtype ? { rtype } : {}), ...(ipv ? { ip: ipv } : {}), ...(hnum ? { hnum } : {}), ...(andar ? { andar } : {}), ...(setor ? { setor } : {}), ...(etype ? { etype } : {}), ...(sw && u > 1 ? { u } : {}), ...(rack ? { rack } : {}), ...(pos ? { pos } : {}) };
+    if (name || ports || sfp || sw || conc || role || rtype || andar || setor || hnum || ipv || rackName) inventory[ip] = { ...(name ? { name } : {}), ports, sfp, ...(sw ? { sw: true } : {}), ...(conc ? { conc: true } : {}), ...(role ? { role } : {}), ...(rtype ? { rtype } : {}), ...(ipv ? { ip: ipv } : {}), ...(rackName ? { rackName } : {}), ...(hnum ? { hnum } : {}), ...(andar ? { andar } : {}), ...(setor ? { setor } : {}), ...(etype ? { etype } : {}), ...(sw && u > 1 ? { u } : {}), ...(rack ? { rack } : {}), ...(pos ? { pos } : {}) };
   }
   return { links, inventory };
 }

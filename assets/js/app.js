@@ -717,6 +717,7 @@ function renderAll() {
   updateStats();
   if (S.viewMode === 'grid') renderGrid();
   else                       renderList();
+  if (window.renderEquipment) renderEquipment();
   const _tt = document.getElementById('tabTopology');
   if (_tt && !_tt.classList.contains('d-none')) renderTopology();
 }
@@ -1594,10 +1595,14 @@ window.initApp = async () => {
     const category = document.getElementById('modCategory').value;
     const settingsNotes = document.getElementById('modSettingsNotes').value.trim();
 
-    S.devices[ip].name       = customName || document.getElementById('modName').value.trim();
+    const nm = customName || document.getElementById('modName').value.trim();
+    S.devices[ip].name       = nm;
     S.devices[ip].type       = category || document.getElementById('modType').value;
     S.devices[ip].notes      = settingsNotes || document.getElementById('modNotes').value.trim();
     S.devices[ip].manualType = true;
+    // o nome digitado aqui só valia na aba atual (S.devices não é salvo); grava no cadastro da
+    // Topologia (inventory, persistido no servidor) para não "voltar" ao título da página após recarregar
+    if (typeof setName === 'function' && nm !== (invOf(ip).name || '')) setName(ip, nm);
     if (typeof setRole === 'function' && document.getElementById('modRole')) {
       const r1 = document.getElementById('modRole'), r2 = document.getElementById('modRole2');
       const role = r2.value !== r2.dataset.init ? r2.value : r1.value;
@@ -1629,7 +1634,7 @@ window.initApp = async () => {
   }
 
   // 4. Abas principais (Monitor / Topologia / Tráfego) + modo lado a lado
-  const PANES = { monitor: 'tabMonitor', topology: 'tabTopology', traffic: 'tabTraffic' };
+  const PANES = { monitor: 'tabMonitor', equipment: 'tabEquipment', topology: 'tabTopology', traffic: 'tabTraffic' };
   S.split = false;
   S.second = 'traffic';
   try {
@@ -1671,6 +1676,10 @@ window.initApp = async () => {
       renderTopology();
       pollTraffic();
       setTimeout(() => { if (window.topoResize) topoResize(); }, 60);
+    }
+    if (show.includes('equipment')) {
+      if (window.renderEquipment) renderEquipment();
+      if (window.pollTraffic) pollTraffic();
     }
   }
   window.switchTab = function (tabName) { S.activeTab = tabName; applyTab(); };

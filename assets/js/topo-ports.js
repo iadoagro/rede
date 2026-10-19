@@ -76,9 +76,10 @@ const rackIps = () => {
   Object.entries(S.topoCfg.inventory || {}).forEach(([k, v]) => { if (v.conc || (!v.sw && ((v.ports | 0) || (v.sfp | 0)))) s.add(k); });
   return [...s].filter(ip => !isSwitch(ip));
 };
-// nome do cadastro de um concentrador: "Hack <nº> - <setor>" ou o nome digitado
+// nome do cadastro de um concentrador: o nome do hack (se definido), senão "Hack <nº> - <setor>", senão o nome digitado no equipamento
 function rackTitleOf(ip) {
   const v = invOf(ip);
+  if (v.rackName) return v.rackName;
   if (v.hnum) return `Hack ${v.hnum}${v.setor ? ' - ' + v.setor : ''}`;
   return v.name || '';
 }
@@ -296,7 +297,9 @@ function renderTopoDetails(force) {
   const panel = gid('topoDetailsPanel'), ip = S.topoSel;
   if (!panel) return;
   const known = ip && (S.devices[ip] || S.traffic[ip] || isSwitch(ip) || invOf(ip).name || invOf(ip).ports || invOf(ip).sfp || topoLinks().some(l => l.from === ip || l.to === ip));
-  const section = document.querySelector('.topo-map-section');
+  // usa o ancestral do próprio painel: ".topo-map-section" também existe (reaproveitada) na
+  // aba Monitor, e document.querySelector pegava essa de lá por vir antes no documento
+  const section = panel.closest('.topo-map-section');
   if (!known) {
     if (section) section.classList.remove('has-sel');
     [topoView, infraView, rackView].forEach(v => v && v.setInset(0));
@@ -522,6 +525,13 @@ async function setLoc(id, field, value) {
   const inv = { ...(S.topoCfg.inventory || {}) }, cur = { ...(inv[id] || {}) };
   if (value) cur[field] = value; else delete cur[field];
   inv[id] = cur; S.topoCfg.inventory = inv;
+  await commitInventory();
+}
+async function setName(id, name) {
+  const inv = { ...(S.topoCfg.inventory || {}) }, cur = { ...(inv[id] || {}) };
+  if (name) cur.name = name; else delete cur.name;
+  if (cur.name || cur.ports || cur.sfp || cur.sw || cur.conc || cur.pos || cur.role || cur.rtype) inv[id] = cur; else delete inv[id];
+  S.topoCfg.inventory = inv;
   await commitInventory();
 }
 async function setRtype(id, rt) {

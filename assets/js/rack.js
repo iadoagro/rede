@@ -37,6 +37,8 @@
         if (tb) { if (tb.dataset.act === 'addrack') { if (this.opts.onAddRack) this.opts.onAddRack(); } else this.setTab(tb.dataset.tab); return; }
         const del = e.target.closest('.rk-del');
         if (del) { if (this.opts.onRackDel) this.opts.onRackDel(del.dataset.rack); return; }
+        const idel = e.target.closest('.rk-item-del');
+        if (idel) { if (this.opts.onItemDel) this.opts.onItemDel(idel.dataset.id); return; }
         const card = e.target.closest('.rm-card');
         if (card && !e.target.closest('.rm-handle')) { this.setTab(card.dataset.rack); return; }
         const add = e.target.closest('.rk-add');
@@ -96,8 +98,8 @@
     // título do hack: "Hack <nº> - <setor> · Principal|Secundário" (sem número, usa o nome do equipamento)
     _title(n, r, withType) {
       if (!n) return '';
-      const base = n.hnum ? `Hack ${n.hnum}${n.setor ? ' - ' + n.setor : ''}` : n.label;
-      return withType && n.hnum ? `${base} · ${RTYPE_NAME[r.role] || ''}` : base;
+      const base = n.rackName || (n.hnum ? `Hack ${n.hnum}${n.setor ? ' - ' + n.setor : ''}` : n.label);
+      return withType && (n.hnum || n.rackName) ? `${base} · ${RTYPE_NAME[r.role] || ''}` : base;
     }
     rackList() { return this.racks.map(r => ({ id: r.id, name: this._title(this.byId.get(r.id), r, false) || r.id })); }
     unitIds(rackId) { const r = this.racks.find(x => x.id === rackId); return r ? r.units.map(u => u.id) : []; }
@@ -210,6 +212,7 @@
             ${this._role(n, kind) ? `<em class="rk-role ${this._role(n, kind)}">${kind === 'conc' && this._role(n, kind) === 'core' ? 'Core do hack' : ROLE_NAME[this._role(n, kind)]}</em>` : ''}
             ${decor}${this._jacks(n)}
             ${kind === 'conc' && n.portsTotal ? `<span class="rk-meta">${n.portsUsed || 0}/${n.portsTotal}</span>` : ''}
+            ${kind !== 'conc' ? `<button type="button" class="rk-item-del" data-id="${esc(n.id)}" title="Remover ${esc(n.label)} deste rack"><i class="fas fa-trash"></i></button>` : ''}
           </span>
           <span class="rk-ear r"><i class="scr"></i><i class="scr"></i></span>
         </div>`;
@@ -220,7 +223,7 @@
       if (!this.racks.length) return this._html();
       if (this.tab !== 'macro' && !this.racks.some(r => r.id === this.tab)) this.tab = 'macro';
       const tabs = `<div class="rk-tabs" role="tablist"><button type="button" class="rk-tab${this.tab === 'macro' ? ' on' : ''}" data-tab="macro"><i class="fas fa-diagram-project"></i> Macro</button>${this.racks.map(r => {
-        const n = this.byId.get(r.id); return `<button type="button" class="rk-tab${this.tab === r.id ? ' on' : ''}" data-tab="${esc(r.id)}" title="${esc(this._title(n, r, true))}"><i class="rk-dot ${r.role}"></i>${esc(n.hnum ? 'Hack ' + n.hnum : n.label)}</button>`; }).join('')}<button type="button" class="rk-tab add" data-act="addrack" title="Adicionar um rack (concentrador MikroTik)"><i class="fas fa-plus"></i> Adicionar rack</button></div>`;
+        const n = this.byId.get(r.id); return `<button type="button" class="rk-tab${this.tab === r.id ? ' on' : ''}" data-tab="${esc(r.id)}" title="${esc(this._title(n, r, true))}"><i class="rk-dot ${r.role}"></i>${esc(n.rackName || (n.hnum ? 'Hack ' + n.hnum : n.label))}</button>`; }).join('')}<button type="button" class="rk-tab add" data-act="addrack" title="Adicionar um rack (concentrador MikroTik)"><i class="fas fa-plus"></i> Adicionar rack</button></div>`;
       if (this.tab === 'macro') return tabs + this._macro();
       return tabs + this._html(this.racks.filter(r => r.id === this.tab));
     }
@@ -310,10 +313,10 @@
         const emptyRows = Array.from({ length: free }, (_, i) => `<div class="rk-slot" style="--h:1"><span class="rk-rail"><b>${free - i}</b></span><span class="rk-void"></span><span class="rk-rail r"><b></b></span><span class="rk-gut"></span></div>`).join('');
         const nSw = r.units.length - 1;
         return `<section class="rk" data-rack="${esc(r.id)}">
-          <header class="rk-head rk-hit" data-id="${esc(r.id)}"><span class="rk-hico"><i class="fas fa-server"></i></span>
+          <header class="rk-head"><span class="rk-hico"><i class="fas fa-server"></i></span>
             <div><b>${esc(this._title(n, r, true))}</b><small>1 concentrador${nSw ? ' + ' + nSw + (nSw === 1 ? ' equipamento' : ' equipamentos') : ''} · ${used}/${total} U</small></div>
             ${l && pn ? `<span class="rk-up" title="Ligado a ${esc(pn.label)}"><em class="mt ${l.medium || 'utp'}">${MEDIUM[l.medium] || 'UTP'}</em> ↑ ${esc(pn.label)}</span>` : '<span class="rk-up root">topo da rede</span>'}
-            <span class="rk-loc"><input class="rk-loc-in num" data-rack="${esc(r.id)}" data-f="hnum" maxlength="12" placeholder="Nº" title="Número do hack" value="${esc(n.hnum)}"><input class="rk-loc-in" data-rack="${esc(r.id)}" data-f="andar" maxlength="30" placeholder="Andar" title="Andar do rack" value="${esc(n.andar)}"><input class="rk-loc-in wide" data-rack="${esc(r.id)}" data-f="setor" maxlength="60" placeholder="Setor" title="Setor do rack" value="${esc(n.setor)}"></span>
+            <span class="rk-loc"><input class="rk-loc-in wide" data-rack="${esc(r.id)}" data-f="rackName" maxlength="60" placeholder="Nome do hack" title="Nome do hack (se vazio, usa o Nº + setor, ou o nome do equipamento)" value="${esc(n.rackName)}"><input class="rk-loc-in num" data-rack="${esc(r.id)}" data-f="hnum" maxlength="12" placeholder="Nº" title="Número do hack" value="${esc(n.hnum)}"><input class="rk-loc-in" data-rack="${esc(r.id)}" data-f="andar" maxlength="30" placeholder="Andar" title="Andar do rack" value="${esc(n.andar)}"><input class="rk-loc-in wide" data-rack="${esc(r.id)}" data-f="setor" maxlength="60" placeholder="Setor" title="Setor do rack" value="${esc(n.setor)}"></span>
             <select class="rk-role-sel ${r.role}" data-rack="${esc(r.id)}" title="Tipo deste rack">${Object.entries(RTYPE_NAME).map(([k, l]) => `<option value="${k}"${k === r.role ? ' selected' : ''}>${l}</option>`).join('')}</select>
             <button type="button" class="rk-add" data-rack="${esc(r.id)}" title="Adicionar equipamento neste rack"><i class="fas fa-plus"></i></button>
             <button type="button" class="rk-del" data-rack="${esc(r.id)}" title="Remover este rack"><i class="fas fa-trash"></i></button></header>

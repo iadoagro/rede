@@ -484,6 +484,10 @@ body.dark-mode .mt { color: #8fb6fb; } body.dark-mode .mt.fibra { color: #fbbf5a
 .rk-unit.st-online .rk-led { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
 .rk-unit.st-offline .rk-led { background: var(--bad); }
 .rk-meta { font-size: .62rem; opacity: .75; white-space: nowrap; }
+.rk-item-del { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 6px; border: 1px solid rgba(255,255,255,.12);
+  background: rgba(15,18,28,.55); color: #f0a3ad; cursor: pointer; display: grid; place-items: center; font-size: .72rem; opacity: 0; transition: opacity .15s, background .15s; z-index: 1; }
+.rk-unit.rk-sw:hover .rk-item-del { opacity: 1; }
+.rk-item-del:hover { background: var(--bad); border-color: var(--bad); color: #fff; }
 
 /* jacks RJ45 / cages SFP com LED */
 .rk-jacks { display: flex; gap: 6px; flex: none; }

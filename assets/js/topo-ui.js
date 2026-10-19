@@ -165,7 +165,7 @@ function buildTopoModel() {
              cpu: cpuMem && m.cpuLoad != null ? m.cpuLoad : null, mem: cpuMem ? memUsedPct(m) : null,
              model: m.board ? m.board + (m.version ? ' · RouterOS ' + m.version : '') : ti.label,
              portsTotal: devPorts(d.ip).items.length, portsUsed: cablesOf(d.ip).size, pm: portMatrix(d.ip),
-             role: invOf(d.ip).role || '', rtype: isSwitch(d.ip) ? '' : (invOf(d.ip).rtype || ''), hnum: isSwitch(d.ip) ? '' : (invOf(d.ip).hnum || ''), andar: isSwitch(d.ip) ? '' : (invOf(d.ip).andar || ''), setor: isSwitch(d.ip) ? '' : (invOf(d.ip).setor || ''), etype: isSwitch(d.ip) ? (invOf(d.ip).etype || 'switch') : 'conc', tlabel: isSwitch(d.ip) ? RK_TYPES[invOf(d.ip).etype || 'switch'].label : '',
+             role: invOf(d.ip).role || '', rtype: isSwitch(d.ip) ? '' : (invOf(d.ip).rtype || ''), rackName: isSwitch(d.ip) ? '' : (invOf(d.ip).rackName || ''), hnum: isSwitch(d.ip) ? '' : (invOf(d.ip).hnum || ''), andar: isSwitch(d.ip) ? '' : (invOf(d.ip).andar || ''), setor: isSwitch(d.ip) ? '' : (invOf(d.ip).setor || ''), etype: isSwitch(d.ip) ? (invOf(d.ip).etype || 'switch') : 'conc', tlabel: isSwitch(d.ip) ? RK_TYPES[invOf(d.ip).etype || 'switch'].label : '',
              u: isSwitch(d.ip) ? (invOf(d.ip).u || 1) : 1, pos: isSwitch(d.ip) ? (invOf(d.ip).pos || 0) : 0, rack: isSwitch(d.ip) ? (invOf(d.ip).rack || '') : '', rk: rackPorts(d.ip) };
   };
 
@@ -188,8 +188,10 @@ function buildTopoModel() {
   }
 
   // sem ligações configuradas: Internet -> núcleo -> demais, por tipo
-  // só o que importa: conhecidos, manuais e quem respondeu (durante a varredura, IPs ainda não verificados ficam de fora)
-  const devs = Object.values(S.devices).filter(d => d.known || d.manual || d.status === 'online' || d.prevStatus === 'online');
+  // só os equipamentos marcados para aparecer na Topologia na aba "Equipamento" (escolha do usuário)
+  const inc = topoIncludeSet();
+  const devs = Object.values(S.devices).filter(d => inc.has(d.ip));
+  inc.forEach(ip => { if (!devs.some(d => d.ip === ip)) devs.push({ ip, name: '', hostname: '', type: 'nucleo', status: 'unknown', known: true }); });
   const nucleos   = devs.filter(d => d.type === 'nucleo').sort((a, b) => ipCmp(a.ip, b.ip));
   const mid       = devs.filter(d => ['server', 'accesspoint', 'printer'].includes(d.type)).sort((a, b) => ipCmp(a.ip, b.ip));
   const computers = devs.filter(d => d.type === 'computer').sort((a, b) => ipCmp(a.ip, b.ip));
@@ -431,6 +433,7 @@ function initTopology() {
     onRtype: (id, r) => setRtype(id, r),
     onLoc: (id, f, v) => setLoc(id, f, v),
     onUnlink: id => unlinkChild(id),
+    onItemDel: id => removeSwitch(id),
     onZoom:   k  => { const el = document.getElementById('topoZoomLevel'); if (el) el.textContent = Math.round(k * 100) + '%'; },
   };
   topoView = new TopoView(cTree, { ...common, orient: S.topoUi.orient });
@@ -519,7 +522,9 @@ function initTopology() {
     let lw = 0;
     new ResizeObserver(() => { const w = document.getElementById('topoLayout').clientWidth; if (w && (w < 1060) !== (lw && lw < 1060)) { lw = w; topoDefaults(); syncSidebarOpen(); } lw = w || lw; }).observe(document.getElementById('topoLayout'));
   }
-  setInterval(() => { if (topoVisible()) pollTraffic(); }, 2000);
+  // também mantém o /api/traffic vivo quando só a aba "Equipamento" está aberta: ela usa S.traffic
+  // para saber, por padrão, quais equipamentos já têm acesso SSH (antes de o usuário escolher à mão)
+  setInterval(() => { if (topoVisible() || eqVisible()) pollTraffic(); }, 2000);
   pollPing(); setInterval(() => { if (topoVisible()) pollPing(); }, 2000);
   setInterval(() => { if (topoVisible() && S.topoUi.mode === 'infra' && S.topoUi.tlOpen) loadTopoEvents(); }, 30000);
   syncSidebarOpen();

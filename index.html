@@ -41,6 +41,7 @@
 
   <nav id="mainTabs" class="appbar-tabs" role="tablist">
     <a href="#" data-main-tab="monitor" class="active"><i class="fas fa-gauge-high"></i>Monitor</a>
+    <a href="#" data-main-tab="equipment"><i class="fas fa-server"></i>Equipamento</a>
     <a href="#" data-main-tab="topology"><i class="fas fa-diagram-project"></i>Topologia</a>
     <a href="#" data-main-tab="traffic"><i class="fas fa-chart-line"></i>Tráfego</a>
   </nav>
@@ -51,6 +52,7 @@
     <div class="split-ctl">
       <select id="splitWith" class="nm-select-plain d-none" title="Aba ao lado">
         <option value="monitor">Monitor</option>
+        <option value="equipment">Equipamento</option>
         <option value="topology">Topologia</option>
         <option value="traffic" selected>Tráfego</option>
       </select>
@@ -75,9 +77,10 @@
 
 <!-- ══ CONTEÚDO ══════════════════════════════════════════════════════ -->
 <div id="workspace">
-  <div id="tabMonitor"  class="ws-pane container-fluid px-3 py-3"></div>
-  <div id="tabTopology" class="ws-pane d-none container-fluid px-3 py-3"></div>
-  <div id="tabTraffic"  class="ws-pane d-none"><iframe id="trafficFrame" title="Tráfego das portas"></iframe></div>
+  <div id="tabMonitor"   class="ws-pane container-fluid px-3 py-3"></div>
+  <div id="tabEquipment" class="ws-pane d-none container-fluid px-3 py-3"></div>
+  <div id="tabTopology"  class="ws-pane d-none container-fluid px-3 py-3"></div>
+  <div id="tabTraffic"   class="ws-pane d-none"><iframe id="trafficFrame" title="Tráfego das portas"></iframe></div>
 </div>
 
 <div id="toastContainer"></div>
@@ -86,14 +89,16 @@
 <script src="assets/js/topology.js"></script>
 <script src="assets/js/rack.js"></script>
 <script src="assets/js/app.js"></script>
+<script src="assets/js/equipment.js"></script>
 <script src="assets/js/topo-ports.js"></script>
 <script src="assets/js/topo-ui.js"></script>
 
 <script>
   document.addEventListener('DOMContentLoaded', async () => {
     const pages = [
-      { id: 'tabMonitor',  src: 'pages/monitor.html'  },
-      { id: 'tabTopology', src: 'pages/topology.html' },
+      { id: 'tabMonitor',   src: 'pages/monitor.html'   },
+      { id: 'tabEquipment', src: 'pages/equipment.html' },
+      { id: 'tabTopology',  src: 'pages/topology.html'  },
     ];
 
     await Promise.all(pages.map(async ({ id, src }) => {

@@ -70,7 +70,7 @@ html.embedded .rail,html.embedded header h1,html.embedded .themebtn,html.embedde
 html.embedded header{background:var(--bg);border-bottom:0;padding:14px 20px 0}
 html.embedded main{padding-top:14px}
 
-main{flex:1;width:100%;padding:20px;display:flex;flex-direction:column;min-height:0;max-width:1700px;margin:0 auto}
+main{flex:1;width:100%;padding:20px;display:flex;flex-direction:column;min-height:0}
 main>*{flex:none}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:14px}
 .panel h2,.panel h3{font-size:14px;margin:0 0 2px;font-weight:600}
@@ -144,20 +144,13 @@ main>*{flex:none}
 .live{float:right;font:600 11px var(--mono);color:var(--ok)}
 .live::first-letter{animation:livep 1.2s ease-in-out infinite}
 @keyframes livep{50%{opacity:.25}}
-.pbhd small{font-weight:500;text-transform:none;letter-spacing:0;color:var(--dim);margin-left:6px}
-.pbhd{margin:18px 0 2px;font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
-.pbrow{display:grid;grid-template-columns:minmax(110px,170px) 1fr 64px;gap:14px;align-items:center}
-.pbrow .pbn{display:flex;align-items:center;gap:8px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pbrow .pbn i{width:11px;height:11px;border-radius:3px;background:var(--hk);flex:none}
-.pbrow b.pv{text-align:right;font:600 12px var(--mono)}
-.pbrow .ugrad{margin:12px 0}
-.pbscale{display:grid;grid-template-columns:minmax(110px,170px) 1fr 64px;gap:14px}
 .ovwrap{display:flex;flex-direction:column;gap:14px}
 .ovbar{display:flex;align-items:center;justify-content:flex-end;gap:10px;font-size:12px;color:var(--mut)}
 .ovbar .seg{display:inline-flex;border:1px solid var(--bd,#e3e6ef);border-radius:10px;overflow:hidden}
 .ovbar .seg button{border:0;background:transparent;padding:6px 12px;font-size:12px;cursor:pointer;color:inherit}
 .ovbar .seg button.active{background:var(--primary,#4f46e5);color:#fff}
 #ovDevs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 16px;align-items:start}
+#ovDevs>.devsec:last-child:nth-child(odd){grid-column:1 / -1}
 @media (max-width:1100px){#ovDevs{grid-template-columns:minmax(0,1fr)}}
 .devsec{--hk:var(--accent);min-width:0;background:color-mix(in srgb,var(--hk) 9%,var(--bg));border:2px solid color-mix(in srgb,var(--hk) 45%,var(--line));border-top:6px solid var(--hk);border-radius:16px;padding:16px 16px 4px;box-shadow:0 6px 20px rgba(15,23,42,.10)}
 .devsec .panel{margin-bottom:12px;border-color:color-mix(in srgb,var(--hk) 28%,var(--line))}
@@ -176,6 +169,11 @@ main>*{flex:none}
 .search::before{content:'⌕';position:absolute;left:10px;color:var(--dim);font-size:15px;line-height:1}
 .search input{width:250px;height:32px;padding:0 10px 0 28px;background:var(--panel);color:var(--tx);border:1px solid var(--line);border-radius:8px;font:13px 'Inter',sans-serif}
 .tblwrap{overflow-x:auto}
+.ptblpanel .tblwrap{display:none;margin-top:14px}
+.ptblpanel.open .tblwrap{display:block}
+.ptbltoggle{margin:0}
+.ptblarw{font-style:normal;display:inline-block;transition:transform .15s}
+.ptblpanel.open .ptblarw{transform:rotate(90deg)}
 table{width:100%;border-collapse:collapse}
 th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums;white-space:nowrap}
 th{color:var(--tx);font-weight:600;font-size:12px;user-select:none}
@@ -870,7 +868,7 @@ function devSecFrame(d,idx){
   return `<section class="devsec" ${st} data-host="${esc(d.host)}"><div class="dvh-wrap"></div>
     <section class="panel devutil"></section>
     <section class="panel pp"><div class="ppRoot"></div></section>
-    <section class="panel"><div class="tblwrap"><table class="ptbl"><thead>${theadHTML()}</thead><tbody class="ptbody"></tbody></table></div></section></section>`;
+    <section class="panel ptblpanel"><button type="button" class="chip ptbltoggle"><i class="ptblarw">▸</i>Mostrar portas</button><div class="tblwrap"><table class="ptbl"><thead>${theadHTML()}</thead><tbody class="ptbody"></tbody></table></div></section></section>`;
 }
 const putHTML=(el,h)=>{ if(el&&el.dataset.h!==h){ el.dataset.h=h; el.innerHTML=h; } };
 function refreshTables(){
@@ -889,21 +887,18 @@ function bindOverview(){
     saveUi(); $('chips').dataset.csig=''; renderChips(data.devices.filter(d=>d.ok),$('chips')); refreshTables();
   };
   $('ovDevs').addEventListener('click',e=>{
+    const tog=e.target.closest('.ptbltoggle');
+    if(tog){ const p=tog.closest('.ptblpanel'), open=p.classList.toggle('open'); tog.lastChild.textContent=open?'Ocultar portas':'Mostrar portas'; return; }
     const th=e.target.closest('th[data-k]'); if(!th) return;
     ui.sort=ui.sort.key===th.dataset.k?{key:th.dataset.k,dir:-ui.sort.dir}:{key:th.dataset.k,dir:['act','txs','rxs','txr','rxr','speed'].includes(th.dataset.k)?-1:1};
     saveUi(); refreshTables();
   });
 }
-// Barra geral (ao vivo, a cada atualização): cada hack (.4, .5, .6, .7…) ocupa a fatia que representa do tráfego que chega por eles.
-// Barra de baixo: o uso total do equipamento da Internet (10.20.12.1), que recebe tudo.
-function inetHost(){
-  const ds=data.devices, byRole=ds.find(d=>topo&&topo.inv&&topo.inv[d.host]&&topo.inv[d.host].rtype==='internet');
-  return (byRole||ds[0]||{}).host;
-}
+// Barra geral (ao vivo, a cada atualização): cada equipamento ocupa a fatia que representa do tráfego total.
 function renderUtilShare(){
   const all=data.devices, bar=$('sbar'); if(!bar) return;
-  const ih=inetHost(), inet=all.find(d=>d.host===ih), colorOf=d=>HACK_COLORS[all.indexOf(d)%HACK_COLORS.length];
-  const ds=all.filter(d=>d.host!==ih);
+  const colorOf=d=>HACK_COLORS[all.indexOf(d)%HACK_COLORS.length];
+  const ds=all;
   const tot=ds.map(d=>{const r=d.ok?aggRates(d):{rx:0,tx:0}; return r.rx+r.tx;}), sum=tot.reduce((a,b)=>a+b,0);
   const sig=ds.map(d=>d.host).join(',');
   if(bar.dataset.n!==sig){
@@ -922,16 +917,6 @@ function renderUtilShare(){
     sp.title=`${ds[i].name}: ${pct.toFixed(1)}% do tráfego (${fmtBps(tot[i])})`;
   });
   putHTML($('slegend'),ds.map((d,i)=>`<span class="sl" style="--hk:${colorOf(d)}"><i></i>${esc(d.name)} <b>${(sum>0?tot[i]/sum*100:0).toFixed(1)}%</b> <span>${d.ok?fmtBps(tot[i]):'offline'}</span></span>`).join(''));
-  // uso total do equipamento da Internet
-  if(inet){
-    const act=inet.ok?physPorts(inet).filter(p=>p.running).map(p=>({p,u:utilPct(p)})).sort((a,b)=>b.u-a.u):[];
-    const r=inet.ok?aggRates(inet):{rx:0,tx:0};
-    const marks=act.slice(0,3).map((x,k)=>`<span class="um${x.u>=80?' hot':x.u>=50?' warm':''}" style="left:${Math.max(1.5,Math.min(98.5,x.u))}%" title="${esc(x.p.comment||x.p.name)} · ${x.u.toFixed(1)}%"><i>${k+1}</i></span>`).join('');
-    putHTML($('inethd'),`${esc(inet.name)} <small>${esc(inet.host)} · Internet — recebe o tráfego de todos os hacks</small>`);
-    putHTML($('perbox'),`<div class="pbrow" style="--hk:${colorOf(inet)}"><span class="pbn" title="${esc(inet.name)} · ${esc(inet.host)}"><i></i>${esc(inet.name)}</span><div class="ugrad">${marks}</div><b class="pv">${inet.ok&&act.length?act[0].u.toFixed(1)+'%':'—'}</b></div>
-      <div class="pbscale"><span></span><div class="uscale"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div><span></span></div>
-      <div class="ukey"><span class="uk">${inet.ok?`↓ <b>${fmtBps(r.rx)}</b> recebendo · ↑ <b>${fmtBps(r.tx)}</b> enviando · ${physPorts(inet).filter(p=>p.running).length}/${physPorts(inet).length} portas ativas`:'equipamento offline'}</span></div>`);
-  }
   const lt=$('liveTag'); if(lt) lt.textContent='● ao vivo · '+new Date().toLocaleTimeString('pt-BR');
 }
 function renderOverviewView(){
@@ -942,7 +927,7 @@ function renderOverviewView(){
       <div id="ovDevsBox"><h3 class="sechd">Equipamentos</h3>
       <section class="panel ovfilters"><div class="fltbar"><div class="chips" id="chips"></div><label class="search"><input id="q" placeholder="Buscar porta, nome ou conexão em todos os equipamentos…" value="${esc(ui.q)}"></label></div></section>
       <div id="ovDevs">${data.devices.map((d,i)=>devSecFrame(d,i)).join('')}</div></div>
-      <div id="ovK"></div><div id="ovUtil"><section class="panel"><h3>Utilização dos links</h3><span class="live" id="liveTag">● ao vivo</span><div class="meta">tráfego que chega por cada hack: uma cor por hack, com o tamanho proporcional ao tráfego dele, atualizado em tempo real</div><div class="sbar" id="sbar"></div><div class="slegend" id="slegend"></div><div class="pbhd">Uso total — <span id="inethd"></span></div><div id="perbox"></div></section></div><div id="ovS"></div></div>`;
+      <div id="ovK"></div><div id="ovUtil"><section class="panel"><h3>Utilização dos links</h3><span class="live" id="liveTag">● ao vivo</span><div class="meta">tráfego de cada equipamento: uma cor por equipamento, com o tamanho proporcional ao tráfego dele, atualizado em tempo real</div><div class="sbar" id="sbar"></div><div class="slegend" id="slegend"></div></section></div><div id="ovS"></div></div>`;
     bindOverview();
   }
   const parts=renderOverview();
